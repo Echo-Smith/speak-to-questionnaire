@@ -9,6 +9,23 @@
 
   const settings = await stqLoadSettings();
 
+  // 麦克风授权（本页是整页标签，不会像 popup 那样被授权框抢焦点关闭）
+  const micMsg = (text, ok) => {
+    const el = $('micMsg');
+    el.textContent = text;
+    el.className = ok ? 'ok' : 'err';
+  };
+  $('micGrant').addEventListener('click', async () => {
+    micMsg('请求授权中…', true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop());
+      micMsg('已授权 ✓', true);
+    } catch (e) {
+      micMsg('授权失败：' + e.message + '（若地址栏有麦克风/相机图标被禁，也可在站点设置里手动允许本插件）', false);
+    }
+  });
+
   // 回填
   $('protocol').value = settings.llm.protocol;
   $('authStyle').value = settings.llm.authStyle;

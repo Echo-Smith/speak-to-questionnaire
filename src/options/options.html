@@ -24,6 +24,13 @@
 <body>
   <h1>语音问卷助手 · 设置</h1>
 
+  <h2>第一步 · 麦克风授权</h2>
+  <div class="row">
+    <button class="primary" id="micGrant">🎤 授权麦克风</button>
+    <span id="micMsg"></span>
+  </div>
+  <p><small>这是授予<b>插件自身</b>的麦克风权限（用于 http 页面识别与自定义转写服务），与问卷网站无关，浏览器会记住，只需点一次。必须在本页点击——popup 小弹窗会因授权框抢焦点而失效。</small></p>
+
   <h2>LLM（BYOK，可选增强）</h2>
   <p><small>填入任意 OpenAI 兼容或 Anthropic 兼容服务（OpenAI / DeepSeek / Moonshot / Ollama / Dots…）。不填则使用内置规则匹配，基础功能不受影响。</small></p>
   <div class="row">

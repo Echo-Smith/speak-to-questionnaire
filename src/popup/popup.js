@@ -11,19 +11,10 @@
     await stqSaveSettings(settings);
   });
 
-  // 一次性授予扩展自身的麦克风权限（offscreen 识别用，与问卷页面无关）
-  const micMsg = document.getElementById('micMsg');
-  document.getElementById('mic').addEventListener('click', async () => {
-    micMsg.style.display = 'block';
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach((t) => t.stop());
-      micMsg.textContent = '已授权 ✓';
-      micMsg.style.color = '#166b5b';
-    } catch (e) {
-      micMsg.textContent = '授权失败：' + e.message;
-      micMsg.style.color = '#ad5b35';
-    }
+  // 麦克风授权在设置页完成：popup 会因授权框抢焦点而关闭（Permission dismissed），
+  // 设置页是整页标签，授权稳定。
+  document.getElementById('mic').addEventListener('click', () => {
+    chrome.runtime.openOptionsPage();
   });
 
   $('options').addEventListener('click', () => {
@@ -56,7 +47,10 @@
       return;
     }
     try {
-      await chrome.scripting.executeScript({ target: { tabId: tab.id }, allFrames: true, files: CONTENT_FILES });
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id, allFrames: true },
+        files: CONTENT_FILES,
+      });
       window.close();
     } catch (e) {
       // activeTab 授权随导航失效是最常见原因：提示用户重新点击
