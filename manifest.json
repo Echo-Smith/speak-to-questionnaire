@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "name": "语音问卷助手 Speak-to-Questionnaire",
+  "version": "0.1.0",
+  "description": "开源问卷语音作答助手：朗读题目、开口作答、说\"下一题\"流转。自带 BYOK（OpenAI 协议）LLM 增强，当前适配问卷星。",
+  "permissions": ["storage", "scripting", "activeTab"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "background": {
+    "service_worker": "src/background/service-worker.js"
+  },
+  "options_page": "src/options/options.html",
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_title": "语音问卷助手"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.wjx.cn/*",
+        "*://*.wjx.top/*",
+        "*://*.sojump.com/*",
+        "*://docs.google.com/forms/*",
+        "*://*.jinshuju.net/*",
+        "*://*.jinshuju.com/*",
+        "*://*.wj.qq.com/*"
+      ],
+      "js": [
+        "src/shared/settings.js",
+        "src/content/canonical.js",
+        "src/content/adapters/registry.js",
+        "src/content/adapters/wjx.js",
+        "src/content/adapters/google-forms.js",
+        "src/content/adapters/generic.js",
+        "src/content/core/matcher.js",
+        "src/content/core/tts.js",
+        "src/content/core/asr.js",
+        "src/content/core/llm.js",
+        "src/content/core/voice-engine.js",
+        "src/content/overlay.js",
+        "src/content/main.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ]
+}

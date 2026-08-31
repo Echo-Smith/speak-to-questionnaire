@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { width: 260px; font: 13px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; color: #18231f; margin: 0; padding: 14px; }
+    h1 { font-size: 14px; margin: 0 0 10px; }
+    .row { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+    button { border: 0; border-radius: 8px; padding: 8px 12px; font-weight: 700; cursor: pointer; width: 100%; }
+    .primary { background: #166b5b; color: #fff; }
+    .ghost { background: #ede9df; color: #455149; }
+    .hint { color: #6a746d; font-size: 11px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>🎙 语音问卷助手</h1>
+  <div class="row">
+    <input type="checkbox" id="enabled">
+    <label for="enabled" style="margin:0">启用插件</label>
+  </div>
+  <div class="row">
+    <button class="primary" id="options">打开设置（BYOK LLM / 语音偏好）</button>
+  </div>
+  <div class="row">
+    <button class="ghost" id="inject">在本页启用（其他问卷平台）</button>
+  </div>
+  <div class="hint">问卷星 / Google Forms 等已适配平台自动生效；其他平台点"在本页启用"用通用模式注入。说明"下一题 / 上一题 / 重复 / 跳过"控制流转。</div>
+  <script src="../shared/settings.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
