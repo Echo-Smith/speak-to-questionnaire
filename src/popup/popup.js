@@ -50,13 +50,21 @@
 
   $('inject').addEventListener('click', async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab || !/^https?:/i.test(tab.url || '')) return;
+    if (!tab || !/^https?:/i.test(tab.url || '')) {
+      hint('当前页面无法注入（仅支持 http/https 页面）');
+      return;
+    }
     try {
-      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: CONTENT_FILES });
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, allFrames: true, files: CONTENT_FILES });
       window.close();
     } catch (e) {
-      const hint = document.querySelector('.hint');
-      hint.textContent = '注入失败：' + e.message + '（应用商店内部页、PDF 等页面无法注入）';
+      // activeTab 授权随导航失效是最常见原因：提示用户重新点击
+      hint('注入失败：' + e.message + '。请关闭弹窗后重新点击插件图标再试一次（activeTab 授权随页面跳转会过期）。');
     }
   });
+
+  function hint(text) {
+    const el = document.querySelector('.hint');
+    el.textContent = text;
+  }
 })();

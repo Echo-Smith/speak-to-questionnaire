@@ -63,7 +63,7 @@
 | 问卷星 wjx.cn / wjx.top / sojump.com | 自动 | 专用适配器 |
 | Google Forms（docs.google.com/forms） | 自动 | 专用适配器（role 语义 DOM） |
 | 金数据 jinshuju.net、腾讯问卷 wj.qq.com、美团问卷 wenjuan.meituan.com | 自动 | 通用适配器（React 自绘：ARIA role 选项 + Shadow DOM 穿透 + SPA 渲染等待） |
-| 其他任意问卷页面 | popup「在本页启用」 | 通用适配器按需注入 |
+| 其他任意问卷页面 | popup「在本页启用」 | 通用适配器按需注入（SPA 站点可随时重按，自动重探题目；activeTab 授权随导航过期时重按一次图标即可） |
 
 **通用适配器（experimental）**：识别标准表单结构——radio/checkbox 按 name 分组、select、textarea/text。支持向导式多步表单（存在"下一步/继续"类按钮即按分步处理，答完当页自动翻步，"上一步"可回退）。题干提取按 `label[for] > fieldset legend > aria-label > 临近标题` 的顺序启发式判断，识别不准的页面欢迎提 issue 附 DOM 片段，或按下面"架构"一节写个专用适配器（通常 100 行以内）。
 

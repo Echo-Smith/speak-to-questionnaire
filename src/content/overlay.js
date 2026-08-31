@@ -44,6 +44,10 @@
   const HINT = '指令：下一题 / 上一题 / 重复 / 跳过 · 多选后说"完成" · 论述说"结束作答"';
 
   STQ.createOverlay = function createOverlay() {
+    // 兼容 SPA 重复注入：先移除遗留宿主，避免 id 冲突导致 attachShadow 抛异常
+    const stale = document.getElementById('stq-overlay-host');
+    if (stale) stale.remove();
+
     const host = document.createElement('div');
     host.id = 'stq-overlay-host';
     host.style.cssText = 'position:fixed;z-index:2147483647;';

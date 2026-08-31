@@ -1,29 +1,25 @@
 /**
  * 内容脚本入口：探测平台 -> 注入面板 -> 绑定语音引擎。
  * - SPA 动态渲染（如美团问卷）：题目未出现时延迟重试探测
- * - 重复注入（popup "在本页启用" + manifest 自动注入）时只启动一次
+ * - SPA 路由切换 / popup 重复"在本页启用"：自动复活实例（重探题目、重建面板），
+ *   而不是被加载哨兵静默挡掉
  */
 (function () {
   'use strict';
-  if (globalThis.__STQ_LOADED__) return;
-  globalThis.__STQ_LOADED__ = true;
-
   const RETRY_DELAYS = [0, 2000, 5000, 10000];
+
+  // 同页重复注入：不重新执行初始化，唤醒既有实例处理新路由/新题目
+  if (globalThis.__STQ_LIVE__) {
+    globalThis.__STQ_LIVE__.revive();
+    return;
+  }
+
   let engine = null;
+  let survey = null;
+  let ui = null;
+  let lastUrl = location.href;
 
-  async function boot() {
-    const settings = await stqLoadSettings();
-    if (!settings.enabled) return;
-
-    const survey = STQ.Registry.probe();
-    if (!survey) return;
-
-    STQ.LLM.refresh(settings);
-    STQ.TTS.configure({ rate: settings.voice.rate, lang: settings.voice.lang });
-
-    const ui = STQ.createOverlay();
-    engine = new STQ.VoiceEngine(survey, ui, settings);
-
+  function wireUI() {
     let micOn = false;
     ui.onMicToggle(() => {
       micOn = !micOn;
@@ -62,30 +58,55 @@
     });
   }
 
-  (function tryBoot(i) {
-    if (i >= RETRY_DELAYS.length) return;
-    setTimeout(async () => {
-      if (engine) return;
-      // probe 前先看页面是否已有疑似题目节点，避免对无关页面反复重试
-      if (i > 0 && !document.querySelector('input[type=radio],input[type=checkbox],textarea,[role=radio],[role=checkbox]')) {
-        tryBoot(i + 1);
-        return;
-      }
-      await boot();
-      if (!engine) tryBoot(i + 1);
-    }, RETRY_DELAYS[i]);
-  })(0);
-
-  chrome.storage.onChanged.addListener(async (changes, area) => {
-    if (area !== 'local' || !changes.settings) return;
+  async function boot() {
     const settings = await stqLoadSettings();
-    if (!settings.enabled && engine) {
-      engine.stop();
-      engine = null;
-    }
-  });
+    if (!settings.enabled) return false;
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => tryBoot(0));
+    survey = STQ.Registry.probe();
+    if (!survey) return false;
+
+    STQ.LLM.refresh(settings);
+    STQ.TTS.configure({ rate: settings.voice.rate, lang: settings.voice.lang });
+
+    ui = STQ.createOverlay();
+    engine = new STQ.VoiceEngine(survey, ui, settings);
+    wireUI();
+
+    globalThis.__STQ_LIVE__ = { revive };
+    return true;
   }
+
+  /** 重探当前页面（SPA 路由切换 / 重注入后） */
+  function revive() {
+    if (engine) { engine.stop(); engine = null; }
+    survey = null;
+    if (ui) { ui.setState('页面已切换，重新探测题目…', 'busy'); }
+    scheduleProbe();
+  }
+
+  function scheduleProbe() {
+    (function attempt(i) {
+      if (i >= RETRY_DELAYS.length) return;
+      setTimeout(async () => {
+        if (engine) return; // 已有实例探测成功
+        if (i > 0 && !document.querySelector('input[type=radio],input[type=checkbox],textarea,[role=radio],[role=checkbox]')) {
+          attempt(i + 1);
+          return;
+        }
+        const ok = await boot();
+        if (ok && ui) ui.setState('已识别到问卷，点击麦克风开始', 'ok');
+        if (!ok) attempt(i + 1);
+      }, RETRY_DELAYS[i]);
+    })(0);
+  }
+
+  // SPA 路由变化监听：pushState/replaceState 不触发原生事件，用轻量轮询
+  setInterval(() => {
+    if (location.href !== lastUrl) {
+      lastUrl = location.href;
+      revive();
+    }
+  }, 1500);
+
+  scheduleProbe();
 })();
