@@ -30,7 +30,8 @@
         "*://docs.google.com/forms/*",
         "*://*.jinshuju.net/*",
         "*://*.jinshuju.com/*",
-        "*://*.wj.qq.com/*"
+        "*://*.wj.qq.com/*",
+        "*://wenjuan.meituan.com/*"
       ],
       "js": [
         "src/shared/settings.js",
@@ -49,7 +50,7 @@
         "src/content/main.js"
       ],
       "run_at": "document_idle",
-      "all_frames": false
+      "all_frames": true
     }
   ]
 }

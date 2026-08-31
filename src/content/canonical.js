@@ -48,6 +48,46 @@
   };
 
   /**
+   * React 受控组件写入：直接赋 value 会被 React 的 value tracker 拦截（视为未变化），
+   * 必须用原型上的原生 setter 赋值再派发 input 事件，React 状态才会更新。
+   */
+  STQ.setNativeValue = function setNativeValue(el, value) {
+    const proto =
+      el instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype :
+      el instanceof HTMLSelectElement ? HTMLSelectElement.prototype :
+      HTMLInputElement.prototype;
+    const desc = Object.getOwnPropertyDescriptor(proto, 'value');
+    if (desc && desc.set) {
+      desc.set.call(el, value);
+    } else {
+      el.value = value;
+    }
+    STQ.dispatchEvent(el, ['input', 'change']);
+  };
+
+  /** 派发 click 并等待一帧，供自绘组件（React/Vue）响应 */
+  STQ.humanClick = async function humanClick(el) {
+    try { el.click(); } catch (_) { /* ignore */ }
+    STQ.dispatchEvent(el, ['mousedown', 'mouseup', 'click']);
+    await new Promise((r) => setTimeout(r, 30));
+  };
+
+  /** Shadow DOM 穿透：root 内深度查询所有匹配元素 */
+  STQ.deepQueryAll = function deepQueryAll(selector, root) {
+    const out = [];
+    const visit = (scope) => {
+      try {
+        for (const el of scope.querySelectorAll(selector)) out.push(el);
+      } catch (_) { /* invalid selector in this scope */ }
+      for (const el of scope.querySelectorAll('*')) {
+        if (el.shadowRoot) visit(el.shadowRoot);
+      }
+    };
+    visit(root || document);
+    return out;
+  };
+
+  /**
    * 构造一个题目对象
    * write/read/clear 由适配器按平台 DOM 实现，这里只提供公共骨架与默认滚动定位。
    */

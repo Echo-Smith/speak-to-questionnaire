@@ -119,12 +119,11 @@
       el: item,
       answerText() { return STQ.normText(input.value); },
       write(text) {
-        input.value = text;
         input.focus();
-        STQ.dispatchEvent(input, ['input', 'change']);
+        STQ.setNativeValue(input, text);
         input.blur();
       },
-      clear() { input.value = ''; STQ.dispatchEvent(input, ['input']); },
+      clear() { STQ.setNativeValue(input, ''); },
     });
   }
 

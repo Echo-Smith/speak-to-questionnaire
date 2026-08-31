@@ -36,11 +36,12 @@
 
     /* ---------------- 生命周期 ---------------- */
 
-    start() {
+    async start() {
       if (this.state !== 'idle') return;
-      this.questions = this.survey.list();
+      this.ui.setState('正在识别页面题目…', 'busy');
+      this.questions = await this.survey.list();
       if (!this.questions.length) {
-        this.ui.setState('未识别到题目', 'error');
+        this.ui.setState('未识别到题目（SPA 页面可稍后点麦克风重试）', 'error');
         this.ui.setMicOn(false);
         return;
       }
@@ -355,7 +356,7 @@
             this.state = 'listening';
             return;
           }
-          this.questions = this.survey.list();
+          this.questions = await this.survey.list();
           this.idx = 0;
           if (!this.questions.length) {
             this.enterFinished();
@@ -387,7 +388,7 @@
             this.state = 'listening';
             return;
           }
-          this.questions = this.survey.list();
+          this.questions = await this.survey.list();
           this.idx = Math.max(0, this.questions.length - 1);
           this.presentQuestion();
         } else {

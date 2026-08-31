@@ -72,6 +72,7 @@
             <button class="mic" data-el="mic" title="开始/停止">🎙</button>
             <div class="hint">${HINT}</div>
             <button class="settings" data-el="settings">设置</button>
+            <button class="settings" data-el="diag" title="复制题目识别结果，用于适配新平台">诊断</button>
           </div>
         </div>
       </div>`;
@@ -84,7 +85,7 @@
     }
 
     const handlers = {
-      onMicToggle: null, onSettings: null, onEssayConfirm: null,
+      onMicToggle: null, onSettings: null, onDiagnostics: null, onEssayConfirm: null,
       onEssayOriginal: null, onEssayRetry: null,
     };
 
@@ -92,6 +93,9 @@
     el.close.addEventListener('click', () => { host.style.display = 'none'; });
     el.settings.addEventListener('click', () => {
       chrome.runtime.sendMessage({ type: 'stq-open-options' });
+    });
+    el.diag.addEventListener('click', () => {
+      handlers.onDiagnostics && handlers.onDiagnostics();
     });
     el.essayConfirm.addEventListener('click', () => {
       handlers.onEssayConfirm && handlers.onEssayConfirm(el.essayText.value);
@@ -119,6 +123,7 @@
       el,
       onMicToggle(fn) { handlers.onMicToggle = fn; },
       onSettings(fn) { handlers.onSettings = fn; },
+      onDiagnostics(fn) { handlers.onDiagnostics = fn; },
 
       setState(text, tone) {
         el.state.textContent = text;
