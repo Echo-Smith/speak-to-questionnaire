@@ -38,11 +38,6 @@
 
     start() {
       if (this.state !== 'idle') return;
-      if (!STQ.ASR.isSupported) {
-        this.ui.setState('当前浏览器不支持语音识别（请用 Chrome/Edge）', 'error');
-        this.ui.setMicOn(false);
-        return;
-      }
       this.questions = this.survey.list();
       if (!this.questions.length) {
         this.ui.setState('未识别到题目', 'error');

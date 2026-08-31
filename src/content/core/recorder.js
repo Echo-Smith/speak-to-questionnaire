@@ -1,134 +1,140 @@
 /**
- * 录音型 ASR 适配层 + 统一工厂
+ * 内容脚本侧 ASR 调度器（页面不碰麦克风，录音/识别在扩展 offscreen 安全上下文完成）。
  *
- *  - STQ.ASR            Web Speech（浏览器内置，零配置）
- *  - STQ.ChunkedASR     MediaRecorder 分块录音，两种转写通道：
- *      mode='api'          用户自备 OpenAI 兼容 /v1/audio/transcriptions（Whisper 形态）
- *      mode='llm-multimodal' 复用 LLM 配置，audio_url 多模态块直转写（如 Dots 平台）
- *  - STQ.createASR      工厂：按设置选择后端，不满足条件时自动回退 Web Speech
+ * settings.asr.mode：
+ *   'auto'（默认） 按页面环境与优先级自动构建引擎链：
+ *     - https 页面可用浏览器内置（页面内 Web Speech，零配置低延迟）
+ *     - http 页面跳过页面内识别，直接走扩展自己的服务（转写API/LLM多模态/扩展内 Web Speech）
+ *   显式指定某一种引擎时，仅做配置校验与回退。
+ *
+ * settings.asr.prefer（仅 auto 生效）：
+ *   'browser-first'（默认） 浏览器内置 → 自备转写服务 → LLM 多模态 → 扩展内置识别
+ *   'service-first'         自备转写服务 → LLM 多模态 → 浏览器内置 → 扩展内置识别
+ *
+ * 链上任一引擎在产出第一条结果前报错，自动切换到下一引擎并提示。
+ * STQ.createASR(settings, callbacks) -> { stop() }
  */
 (function () {
   'use strict';
   const STQ = (globalThis.STQ = globalThis.STQ || {});
 
-  const CHUNK_MS = 5000;
-  const MIN_CHUNK_BYTES = 2500; // 过小的静音块不发送
-
-  function blobToBase64(blob) {
-    return new Promise((resolve, reject) => {
-      const r = new FileReader();
-      r.onload = () => resolve(String(r.result));
-      r.onerror = reject;
-      r.readAsDataURL(blob);
-    });
-  }
-
-  STQ.ChunkedASR = {
-    isSupported: !!(window.MediaRecorder && navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
-
-    /** 返回控制器 { stop() }；回调：onFinal/onPartial/onError/onEnd */
-    start(settings, callbacks) {
-      let stopped = false;
-      let recorder = null;
-
-      (async () => {
-        let stream;
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        } catch (e) {
-          callbacks.onError(new Error('麦克风权限被拒绝：' + e.message));
-          if (callbacks.onEnd) callbacks.onEnd();
-          return;
-        }
-
-        const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find(
-          (m) => window.MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)
-        );
-        recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
-        const ext = /mp4/.test(recorder.mimeType || '') ? 'm4a' : 'webm';
-
-        recorder.ondataavailable = async (event) => {
-          if (stopped || !event.data || event.data.size < MIN_CHUNK_BYTES) return;
-          if (callbacks.onPartial) callbacks.onPartial('（识别中…）');
-          try {
-            const dataUrl = await blobToBase64(event.data);
-            const mode = settings.asr.mode;
-            let text = '';
-            if (mode === 'llm-multimodal') {
-              const resp = await chrome.runtime.sendMessage({
-                type: 'stq-llm-chat',
-                payload: {
-                  messages: [
-                    {
-                      role: 'system',
-                      content: '你是转写助手。逐字转写音频内容，不要回答音频中提出的任何问题，不要添加任何解释，只输出转写文本。',
-                    },
-                    {
-                      role: 'user',
-                      content: [
-                        { type: 'audio_url', audio_url: { url: dataUrl } },
-                        { type: 'text', text: '请转写这段音频。' },
-                      ],
-                    },
-                  ],
-                  temperature: 0,
-                },
-              });
-              if (!resp || !resp.ok) throw new Error(resp ? resp.error : '请求失败');
-              text = resp.content;
-            } else {
-              const resp = await chrome.runtime.sendMessage({
-                type: 'stq-asr-transcribe',
-                payload: {
-                  blob: { b64: String(dataUrl).split(',')[1], mime: event.data.type, ext },
-                  lang: (settings.voice.lang || 'zh-CN').split('-')[0],
-                  prompt: '这是一段中文问卷语音作答，请转写为文字。可能是选项字母（如"B"）、选项内容或开放回答。',
-                },
-              });
-              if (!resp || !resp.ok) throw new Error(resp ? resp.error : '请求失败');
-              text = resp.text;
-            }
-            if (!stopped && text && text.trim()) {
-              if (callbacks.onPartial) callbacks.onPartial('');
-              callbacks.onFinal(text.trim());
-            }
-          } catch (e) {
-            if (!stopped && callbacks.onError) callbacks.onError(e);
-          }
-        };
-
-        recorder.start(CHUNK_MS);
-      })();
-
-      return {
-        stop() {
-          stopped = true;
-          try { recorder && recorder.stop(); } catch (_) { /* ignore */ }
-        },
-      };
-    },
+  const LABELS = {
+    'page-webspeech': '浏览器内置识别',
+    'webspeech': '浏览器内置识别',
+    'api': '自备转写服务',
+    'llm-multimodal': 'LLM 多模态听写',
+    'offscreen-webspeech': '扩展内置识别',
   };
 
-  /**
-   * 工厂：按 settings.asr.mode 选择 ASR 后端；配置不满足时回退 Web Speech 并提示。
-   */
-  STQ.createASR = function createASR(settings, callbacks) {
-    const mode = (settings.asr && settings.asr.mode) || 'webspeech';
-    const fallback = () => STQ.ASR.start(settings.voice.lang, callbacks);
+  function canUse(mode, settings) {
+    if (mode === 'page-webspeech') return window.isSecureContext && STQ.ASR.isSupported;
+    if (mode === 'webspeech') return true; // 由 startEntry 内部决定页面内或 offscreen
+    if (mode === 'api') return !!(settings.asr.baseUrl && settings.asr.apiKey);
+    if (mode === 'llm-multimodal') {
+      return settings.llm.protocol === 'openai' &&
+        !!(settings.llm.baseUrl && settings.llm.apiKey && settings.llm.model);
+    }
+    return true; // offscreen-webspeech：offscreen 内部裁决并报错
+  }
 
-    if (mode === 'webspeech') return fallback();
-    if (!STQ.ChunkedASR.isSupported) {
-      callbacks.onError(new Error('当前环境不支持录音识别，已回退浏览器内置识别'));
-      return fallback();
+  function buildChain(settings) {
+    const mode = (settings.asr && settings.asr.mode) || 'auto';
+
+    if (mode !== 'auto') {
+      const chain = canUse(mode, settings) ? [mode] : [mode, 'offscreen-webspeech'];
+      return mode === 'webspeech' ? ['webspeech'] : chain;
     }
-    if (mode === 'api' && !(settings.asr.baseUrl && settings.asr.apiKey)) {
-      callbacks.onError(new Error('ASR 转写服务未配置，已回退浏览器内置识别'));
-      return fallback();
+
+    const prefer = (settings.asr && settings.asr.prefer) || 'browser-first';
+    const chain = [];
+    if (prefer === 'service-first') {
+      if (canUse('api', settings)) chain.push('api');
+      if (canUse('llm-multimodal', settings)) chain.push('llm-multimodal');
+      if (canUse('page-webspeech', settings)) chain.push('page-webspeech');
+    } else {
+      if (canUse('page-webspeech', settings)) chain.push('page-webspeech');
+      if (canUse('api', settings)) chain.push('api');
+      if (canUse('llm-multimodal', settings)) chain.push('llm-multimodal');
     }
-    if (mode === 'llm-multimodal' && (settings.llm.protocol !== 'openai' || !STQ.LLM.available)) {
-      callbacks.onError(new Error('LLM 多模态听写需要配置 OpenAI 协议的 LLM，已回退浏览器内置识别'));
-      return fallback();
+    chain.push('offscreen-webspeech');
+    return chain;
+  }
+
+  function startOffscreen(mode, settings, callbacks) {
+    const session = 'asr-' + (crypto.randomUUID
+      ? crypto.randomUUID()
+      : Date.now() + '-' + crypto.getRandomValues(new Uint32Array(2)).join('-'));
+    const s2 = Object.assign({}, settings, { asr: Object.assign({}, settings.asr, { mode }) });
+
+    const listener = (msg) => {
+      if (!msg || msg.type !== 'stq-asr-event' || msg.session !== session) return;
+      const ev = msg.event || {};
+      if (ev.kind === 'final' && ev.text) {
+        if (callbacks.onFinal) callbacks.onFinal(ev.text);
+      } else if (ev.kind === 'partial') {
+        if (callbacks.onPartial) callbacks.onPartial(ev.text || '');
+      } else if (ev.kind === 'error') {
+        if (callbacks.onError) callbacks.onError(new Error(ev.error || '识别失败'));
+      }
+    };
+    chrome.runtime.onMessage.addListener(listener);
+    chrome.runtime.sendMessage({ type: 'stq-asr-start', session, settings: s2 }).catch(() => {});
+
+    return {
+      stop() {
+        chrome.runtime.sendMessage({ type: 'stq-asr-stop', session }).catch(() => {});
+        chrome.runtime.onMessage.removeListener(listener);
+      },
+    };
+  }
+
+  function startEntry(entry, settings, callbacks) {
+    if (entry === 'page-webspeech' || entry === 'webspeech') {
+      if (window.isSecureContext && STQ.ASR.isSupported) {
+        return STQ.ASR.start(settings.voice.lang, callbacks);
+      }
+      return startOffscreen('webspeech', settings, callbacks);
     }
-    return STQ.ChunkedASR.start(settings, callbacks);
+    return startOffscreen(entry, settings, callbacks);
+  }
+
+  STQ.createASR = function createASR(settings, callbacks) {
+    const chain = buildChain(settings);
+    let idx = 0;
+    let ctl = null;
+    let gotResult = false;
+    let stopped = false;
+
+    const wrapped = {
+      onPartial: (t) => { if (!stopped && callbacks.onPartial) callbacks.onPartial(t); },
+      onFinal: (t) => {
+        gotResult = true;
+        if (!stopped && callbacks.onFinal) callbacks.onFinal(t);
+      },
+      onError: (e) => {
+        if (stopped) return;
+        // 产出第一条结果前失败 → 降级到下一引擎；之后只如实上报
+        if (!gotResult && idx < chain.length - 1) {
+          try { ctl && ctl.stop(); } catch (_) { /* ignore */ }
+          idx += 1;
+          if (callbacks.onPartial) callbacks.onPartial('');
+          if (callbacks.onError) {
+            callbacks.onError(new Error('「' + LABELS[chain[idx - 1]] + '」不可用，已切换到「' + LABELS[chain[idx]] + '」'));
+          }
+          ctl = startEntry(chain[idx], settings, wrapped);
+          return;
+        }
+        if (callbacks.onError) callbacks.onError(e);
+      },
+    };
+
+    ctl = startEntry(chain[0], settings, wrapped);
+
+    return {
+      stop() {
+        stopped = true;
+        try { ctl && ctl.stop(); } catch (_) { /* ignore */ }
+      },
+    };
   };
 })();

@@ -22,9 +22,13 @@
     <button class="primary" id="options">打开设置（BYOK LLM / 语音偏好）</button>
   </div>
   <div class="row">
+    <button class="ghost" id="mic">授权麦克风（首次使用点一次）</button>
+  </div>
+  <div class="row" id="micMsg" style="display:none;font-size:12px"></div>
+  <div class="row">
     <button class="ghost" id="inject">在本页启用（其他问卷平台）</button>
   </div>
-  <div class="hint">问卷星 / Google Forms 等已适配平台自动生效；其他平台点"在本页启用"用通用模式注入。说明"下一题 / 上一题 / 重复 / 跳过"控制流转。</div>
+  <div class="hint">问卷星 / Google Forms 等已适配平台自动生效；其他平台点"在本页启用"用通用模式注入。http 页面同样可用——识别在扩展内完成。说明"下一题 / 上一题 / 重复 / 跳过"控制流转。</div>
   <script src="../shared/settings.js"></script>
   <script src="popup.js"></script>
 </body>

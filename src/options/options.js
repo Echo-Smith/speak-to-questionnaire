@@ -15,10 +15,13 @@
   $('baseUrl').value = settings.llm.baseUrl;
   $('apiKey').value = settings.llm.apiKey;
   $('model').value = settings.llm.model;
+  $('llmPrivate').checked = !!settings.llm.allowPrivateHosts;
   $('asrMode').value = settings.asr.mode;
+  $('asrPrefer').value = settings.asr.prefer || 'browser-first';
   $('asrBaseUrl').value = settings.asr.baseUrl;
   $('asrApiKey').value = settings.asr.apiKey;
   $('asrModel').value = settings.asr.model;
+  $('asrPrivate').checked = !!settings.asr.allowPrivateHosts;
   $('lang').value = settings.voice.lang;
   $('rate').value = settings.voice.rate;
   $('readOptions').checked = settings.voice.readOptions;
@@ -27,13 +30,14 @@
   $('autoClean').checked = settings.essay.autoClean;
 
   const syncAsrBox = () => {
-    $('asrApiBox').classList.toggle('hidden', $('asrMode').value !== 'api');
+    $('asrApiBox').classList.toggle('hidden', $('asrMode').value === 'webspeech');
+    $('preferBox').classList.toggle('hidden', $('asrMode').value !== 'auto');
   };
   $('asrMode').addEventListener('change', syncAsrBox);
   syncAsrBox();
 
-  async function requestOriginPermission(rawUrl) {
-    const check = stqValidateBaseUrl(rawUrl);
+  async function requestOriginPermission(rawUrl, allowPrivate) {
+    const check = stqValidateBaseUrl(rawUrl, { allowPrivate: !!allowPrivate });
     if (!check.ok) return check;
     const origin = new URL(check.url).origin + '/*';
     try {
@@ -46,7 +50,7 @@
 
   // 保存（用户手势内申请 LLM / ASR 域名的主机权限）
   $('save').addEventListener('click', async () => {
-    const check = stqValidateBaseUrl($('baseUrl').value);
+    const check = stqValidateBaseUrl($('baseUrl').value, { allowPrivate: $('llmPrivate').checked });
     if (!check.ok) return msg($('saveMsg'), 'LLM Base URL 无效：' + check.error, false);
 
     settings.llm.protocol = $('protocol').value;
@@ -54,26 +58,27 @@
     settings.llm.baseUrl = check.url;
     settings.llm.apiKey = $('apiKey').value.trim();
     settings.llm.model = $('model').value.trim();
+    settings.llm.allowPrivateHosts = $('llmPrivate').checked;
 
     const mode = $('asrMode').value;
     settings.asr.mode = mode;
-    if (mode === 'api') {
-      const asrCheck = stqValidateBaseUrl($('asrBaseUrl').value);
+    settings.asr.prefer = $('asrPrefer').value;
+    settings.asr.baseUrl = $('asrBaseUrl').value.trim();
+    settings.asr.apiKey = $('asrApiKey').value.trim();
+    settings.asr.model = $('asrModel').value.trim() || 'whisper-1';
+    settings.asr.allowPrivateHosts = $('asrPrivate').checked;
+
+    if (mode === 'api' || (mode === 'auto' && settings.asr.baseUrl)) {
+      const asrCheck = stqValidateBaseUrl(settings.asr.baseUrl, { allowPrivate: settings.asr.allowPrivateHosts });
       if (!asrCheck.ok) return msg($('saveMsg'), 'ASR Base URL 无效：' + asrCheck.error, false);
-      if (!$('asrApiKey').value.trim()) return msg($('saveMsg'), 'ASR 服务缺少 API Key', false);
+      if (!settings.asr.apiKey) return msg($('saveMsg'), 'ASR 服务缺少 API Key', false);
       settings.asr.baseUrl = asrCheck.url;
-      settings.asr.apiKey = $('asrApiKey').value.trim();
-      settings.asr.model = $('asrModel').value.trim() || 'whisper-1';
-      const p = await requestOriginPermission(settings.asr.baseUrl);
+      const p = await requestOriginPermission(settings.asr.baseUrl, settings.asr.allowPrivateHosts);
       if (!p.ok) return msg($('saveMsg'), p.error, false);
-    } else {
-      settings.asr.baseUrl = $('asrBaseUrl').value.trim();
-      settings.asr.apiKey = $('asrApiKey').value.trim();
-      settings.asr.model = $('asrModel').value.trim() || 'whisper-1';
     }
 
     if (settings.llm.baseUrl) {
-      const p = await requestOriginPermission(settings.llm.baseUrl);
+      const p = await requestOriginPermission(settings.llm.baseUrl, settings.llm.allowPrivateHosts);
       if (!p.ok) return msg($('saveMsg'), p.error, false);
     }
 

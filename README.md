@@ -36,15 +36,25 @@
 
 点「测试连通性」验证。LLM 用于：模糊口述的选项归一（"我觉得还是城里吧" → 选"城市"）、论述题书面整理。请求由插件后台直连你填的服务，与本项目作者无关。
 
-## 语音识别（ASR）三种方式
+## 语音识别（ASR）：自动选择 + 优先级
 
-| 方式 | 适用场景 | 配置 |
+默认 `auto` 模式按页面环境自动构建引擎链，失败自动逐级降级：
+
+| 页面环境 | 引擎链（browser-first 默认） |
+|---|---|
+| **https** | 浏览器内置识别（页面内，零配置低延迟）→ 自备转写服务 → LLM 多模态 → 扩展内置识别 |
+| **http** | 自备转写服务 → LLM 多模态 → **扩展内置识别**（http 页面不允许页面访问麦克风，识别在扩展的 offscreen 安全上下文完成，故 http 问卷同样可用） |
+
+可在设置页切换优先级为 `service-first`（自有转写服务优先），或显式固定某种引擎。链上任一引擎在产出第一条结果前失败，自动切换下一引擎并在面板提示。
+
+| 引擎 | 适用场景 | 配置 |
 |---|---|---|
-| 浏览器内置（默认） | Chrome/Edge，零配置 | 无 |
-| 自备转写服务 | 隐私可控 / 内网部署，OpenAI Whisper 形态（/v1/audio/transcriptions） | Base URL / Key / 模型（如 whisper-1，可用 groq、faster-whisper-server 等） |
-| LLM 多模态直转写 | 服务无转写端点但模型支持音频输入（audio_url，如 Dots） | 复用上方 LLM 配置，协议需为 OpenAI 兼容 |
+| 浏览器内置 | https 页面，零配置 | 无 |
+| 自备转写服务 | OpenAI Whisper 形态（/v1/audio/transcriptions），隐私可控/内网部署 | Base URL / Key / 模型（如 whisper-1、groq、faster-whisper-server） |
+| LLM 多模态直转写 | 服务无转写端点但模型支持音频输入（audio_url，如 Dots） | 复用 LLM 配置，需 OpenAI 协议 |
+| 扩展内置识别 | http 页面的兜底 | 首次在插件弹窗点一次「授权麦克风」 |
 
-后两种在页面本地用 MediaRecorder 分块录音（约 5 秒/块）直连你配置的服务转写；配置缺失或失败时自动回退浏览器内置识别。
+本地/内网地址（如自建 Ollama `http://localhost:11434`）默认被拦截（防 SSRF），需在设置页对应条目勾选「允许本地/内网地址」。
 
 ## 支持平台
 
@@ -87,7 +97,8 @@
 问卷页面（问卷星 DOM）
   → 平台适配器 adapters/wjx.js     归一化为统一题目模型 canonical.js
   → 语音交互引擎 voice-engine.js    指令/答案状态机
-       ├─ createASR 工厂  语音识别（浏览器内置 / 转写API / LLM多模态，recorder.js）
+       ├─ createASR 调度  语音识别（auto：按页面协议自动选链，recorder.js）
+       │    └─ offscreen 文档：麦克风与识别在扩展安全上下文（http 页面可用）
        ├─ tts.js   题目朗读（speechSynthesis）
        ├─ matcher.js 规则匹配（本地兜底）
        └─ llm.js → background → llm-protocols.js（openai / anthropic 可插拔协议适配）

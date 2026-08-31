@@ -3,7 +3,7 @@
   "name": "语音问卷助手 Speak-to-Questionnaire",
   "version": "0.2.0",
   "description": "开源问卷语音作答助手：朗读题目、开口作答、说\"下一题\"流转。自带 BYOK（OpenAI 协议）LLM 增强，当前适配问卷星。",
-  "permissions": ["storage", "scripting", "activeTab"],
+  "permissions": ["storage", "scripting", "activeTab", "offscreen"],
   "optional_host_permissions": ["http://*/*", "https://*/*"],
   "background": {
     "service_worker": "src/background/service-worker.js"

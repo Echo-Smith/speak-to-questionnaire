@@ -11,6 +11,21 @@
     await stqSaveSettings(settings);
   });
 
+  // 一次性授予扩展自身的麦克风权限（offscreen 识别用，与问卷页面无关）
+  const micMsg = document.getElementById('micMsg');
+  document.getElementById('mic').addEventListener('click', async () => {
+    micMsg.style.display = 'block';
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((t) => t.stop());
+      micMsg.textContent = '已授权 ✓';
+      micMsg.style.color = '#166b5b';
+    } catch (e) {
+      micMsg.textContent = '授权失败：' + e.message;
+      micMsg.style.color = '#ad5b35';
+    }
+  });
+
   $('options').addEventListener('click', () => {
     chrome.runtime.openOptionsPage();
   });
