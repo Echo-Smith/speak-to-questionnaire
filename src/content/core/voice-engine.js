@@ -54,6 +54,7 @@
       this.state = 'idle';
       if (this.asrCtl) { this.asrCtl.stop(); this.asrCtl = null; }
       STQ.TTS.cancel();
+      if (STQ.Focus) STQ.Focus.hide();
       this.ui.hideEssay();
       this.ui.setTranscript('');
       this.ui.setState('已停止', 'idle');
@@ -82,6 +83,9 @@
         spoken += '可多选，选择后说"完成"进入下一题。';
       }
       this.setStateSpeaking();
+      if (STQ.Focus && this.settings.voice.highlight) {
+        STQ.Focus.focus(q.el, 'speaking', `读题中 · 第${q.topic}题`);
+      }
       this.ui.setState(`第${q.topic}题（${this.idx + 1}/${this.questions.length}）· 正在朗读`, 'speaking');
       STQ.TTS.speak(spoken, () => {
         if (this.state === 'speaking') this.enterAnswerState();
@@ -96,10 +100,16 @@
       if (q.type === STQ.QTypes.TEXT) {
         this.state = 'dictate';
         this.dictation = '';
+        if (STQ.Focus && this.settings.voice.highlight) {
+          STQ.Focus.focus(q.el, 'listening', '听写中 · 请说话');
+        }
         this.ui.setState('听写中…说完请说"结束作答"', 'listening');
       } else {
         this.state = 'listening';
         const filled = q.answerText();
+        if (STQ.Focus && this.settings.voice.highlight) {
+          STQ.Focus.focus(q.el, 'listening', filled ? '请作答 · 补充或修改' : '请作答');
+        }
         this.ui.setState(
           filled ? `等待作答（已答：${filled}）` : '聆听中…',
           'listening'
@@ -115,6 +125,10 @@
         onPartial: (t) => this.ui.setTranscript(t),
         onFinal: (t) => this.handleFinal(t),
         onError: (e) => {
+          const q = this.currentQuestion();
+          if (q && q.el && STQ.Focus && this.settings.voice.highlight) {
+            STQ.Focus.focus(q.el, 'error', '识别异常');
+          }
           this.ui.setState(e.message + '（点击麦克风重试）', 'error');
         },
       });
@@ -131,6 +145,7 @@
           STQ.TTS.cancel();
           this.enterAnswerState();
         }
+
         return;
       }
 
@@ -179,6 +194,7 @@
           await this.answerMultiple(q, text);
           break;
         default:
+          if (STQ.Focus && this.settings.voice.highlight) STQ.Focus.focus(q.el, 'error', '暂不支持语音');
           this.ui.setState('该题型暂不支持语音作答，请手动作答后说"下一题"', 'error');
       }
     }
@@ -202,6 +218,7 @@
       if (i < 0) i = await this.llmResolve(q, text);
       if (i === -2) return; // LLM 已按指令处理
       if (i < 0) {
+        if (STQ.Focus && this.settings.voice.highlight) STQ.Focus.focus(q.el, 'error', '未匹配，请重说');
         this.ui.setState('没匹配到选项，请再说一次（说"重复"可重听题目）', 'error');
         return;
       }
@@ -223,6 +240,7 @@
         if (i >= 0) select.push(i);
       }
       if (!select.length && !deselect.length) {
+        if (STQ.Focus && this.settings.voice.highlight) STQ.Focus.focus(q.el, 'error', '未匹配，请重说');
         this.ui.setState('没匹配到选项，请再说一次（说"完成"可进入下一题）', 'error');
         return;
       }
@@ -246,6 +264,8 @@
       if (this.settings.voice.autoAdvanceMultiple) {
         await sleep(600);
         await this.goNext();
+      } else {
+        this.enterAnswerState();
       }
     }
 

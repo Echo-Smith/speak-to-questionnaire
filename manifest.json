@@ -42,6 +42,7 @@
         "src/content/adapters/generic.js",
         "src/content/core/matcher.js",
         "src/content/core/tts.js",
+        "src/content/core/focus.js",
         "src/content/core/asr.js",
         "src/content/core/recorder.js",
         "src/content/core/llm.js",

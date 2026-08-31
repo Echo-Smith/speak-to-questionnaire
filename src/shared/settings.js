@@ -31,6 +31,7 @@
       readOptions: true,          // 朗读题目时是否朗读选项
       autoAdvanceSingle: true,    // 单选/量表说完自动下一题
       autoAdvanceMultiple: false, // 多选说完自动下一题（默认停留，需说"完成"）
+      highlight: true,            // 页面上高亮当前题目（读题/作答阶段变色）
     },
     essay: {
       autoClean: false, // 论述题说完后是否请求 LLM 整理（始终先展示预览，可改回原文）

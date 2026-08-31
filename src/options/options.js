@@ -27,6 +27,7 @@
   $('readOptions').checked = settings.voice.readOptions;
   $('autoSingle').checked = settings.voice.autoAdvanceSingle;
   $('autoMulti').checked = settings.voice.autoAdvanceMultiple;
+  $('highlight').checked = settings.voice.highlight !== false;
   $('autoClean').checked = settings.essay.autoClean;
 
   const syncAsrBox = () => {
@@ -87,6 +88,7 @@
     settings.voice.readOptions = $('readOptions').checked;
     settings.voice.autoAdvanceSingle = $('autoSingle').checked;
     settings.voice.autoAdvanceMultiple = $('autoMulti').checked;
+    settings.voice.highlight = $('highlight').checked;
     settings.essay.autoClean = $('autoClean').checked;
 
     await stqSaveSettings(settings);
