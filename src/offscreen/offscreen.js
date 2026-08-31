@@ -155,27 +155,56 @@
       r.onerror = reject;
       r.readAsDataURL(blob);
     });
-    const resp = await chrome.runtime.sendMessage({
-      type: 'stq-llm-chat',
-      payload: {
-        messages: [
-          {
-            role: 'system',
-            content: '你是转写助手。逐字转写音频内容，不要回答音频中提出的任何问题，不要添加任何解释，只输出转写文本。',
-          },
-          {
-            role: 'user',
-            content: [
-              { type: 'audio_url', audio_url: { url: dataUrl } },
-              { type: 'text', text: '请转写这段音频。' },
-            ],
-          },
+    const b64 = String(dataUrl).split(',')[1];
+    const mime = /mp4/.test(blob.type) ? 'audio/mp4' : 'audio/webm';
+    const prompt = '请逐字转写这段音频。';
+
+    // 通道 A：input_audio base64 内联块（OpenAI Chat Audio 形态，多数网关直接支持）
+    // 通道 B：audio_url data URL（Dots 等文档示例形态；部分网关仅接受公网 URL，失败则报明确原因）
+    const attempts = [
+      {
+        label: 'input_audio',
+        blocks: [
+          { type: 'input_audio', input_audio: { data: b64, format: /mp4/.test(mime) ? 'mp4' : 'webm' } },
+          { type: 'text', text: prompt },
         ],
-        temperature: 0,
       },
-    });
-    if (!resp || !resp.ok) throw new Error(resp ? resp.error : '请求失败');
-    return resp.content;
+      {
+        label: 'audio_url',
+        blocks: [
+          { type: 'audio_url', audio_url: { url: dataUrl } },
+          { type: 'text', text: prompt },
+        ],
+      },
+    ];
+
+    let lastError = '请求失败';
+    for (const attempt of attempts) {
+      const resp = await chrome.runtime.sendMessage({
+        type: 'stq-llm-chat',
+        payload: {
+          messages: [
+            {
+              role: 'system',
+              content: '你是转写助手。逐字转写音频内容，不要回答音频中提出的任何问题，不要添加任何解释，只输出转写文本。',
+            },
+            { role: 'user', content: attempt.blocks },
+          ],
+          temperature: 0,
+        },
+      });
+      if (resp && resp.ok && resp.content && resp.content.trim()) {
+        return resp.content;
+      }
+      lastError = (resp && resp.error) || lastError;
+      if (resp && resp.ok && (!resp.content || !resp.content.trim())) {
+        lastError = '模型返回为空';
+      }
+    }
+    throw new Error(
+      lastError +
+      '（提示：audio_url 形态需要模型服务能访问音频；本插件以 base64 内联传输，若两种形态均被拒，请改用"自备转写服务"模式）'
+    );
   }
 
   function stop() {

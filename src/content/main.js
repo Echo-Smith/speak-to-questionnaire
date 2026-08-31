@@ -50,8 +50,21 @@
             options: (q.options || []).map((o) => o.label),
           })),
         };
-        await navigator.clipboard.writeText(JSON.stringify(data, null, 2));
-        ui.setState('诊断信息已复制到剪贴板 ✓', 'ok');
+        const text = JSON.stringify(data, null, 2);
+        // clipboard API 仅安全上下文可用（http 页面为 undefined），降级 execCommand
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+          ui.setState('诊断信息已复制到剪贴板 ✓', 'ok');
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.cssText = 'position:fixed;left:-9999px;top:0;';
+          document.body.appendChild(ta);
+          ta.select();
+          const ok = document.execCommand('copy');
+          ta.remove();
+          ui.setState(ok ? '诊断信息已复制到剪贴板 ✓' : '复制失败（http 页面限制），请打开 Console 手动复制', ok ? 'ok' : 'error');
+        }
       } catch (e) {
         ui.setState('诊断失败：' + e.message, 'error');
       }
