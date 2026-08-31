@@ -107,21 +107,45 @@
     el.essayOriginal.addEventListener('click', () => handlers.onEssayOriginal && handlers.onEssayOriginal());
     el.essayRetry.addEventListener('click', () => handlers.onEssayRetry && handlers.onEssayRetry());
 
-    // 拖动
+    // 拖动（安全范围：面板完整保留在视口内，最小边距 4px）
     let drag = null;
     el.panel = shadow.querySelector('.panel');
-    shadow.querySelector('.head').addEventListener('pointerdown', (e) => {
+    const headEl = shadow.querySelector('.head');
+    const MARGIN = 4;
+    const clampPanel = () => {
+      const w = el.panel.offsetWidth || 300;
+      const h = el.panel.offsetHeight || 200;
+      const maxRight = Math.max(MARGIN, window.innerWidth - w - MARGIN);
+      const maxBottom = Math.max(MARGIN, window.innerHeight - h - MARGIN);
+      const r = parseFloat(el.panel.style.right) || MARGIN;
+      const b = parseFloat(el.panel.style.bottom) || MARGIN;
+      el.panel.style.right = Math.min(Math.max(MARGIN, r), maxRight) + 'px';
+      el.panel.style.bottom = Math.min(Math.max(MARGIN, b), maxBottom) + 'px';
+    };
+    headEl.addEventListener('pointerdown', (e) => {
+      // 只响应左键/触摸；点按钮不触发拖动
+      if (e.button !== 0) return;
       const rect = el.panel.getBoundingClientRect();
       drag = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+      try { headEl.setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
+      e.preventDefault();
     });
-    window.addEventListener('pointermove', (e) => {
+    headEl.addEventListener('pointermove', (e) => {
       if (!drag) return;
-      const right = window.innerWidth - e.clientX + drag.dx - el.panel.offsetWidth;
-      const bottom = window.innerHeight - e.clientY + drag.dy - el.panel.offsetHeight;
-      el.panel.style.right = Math.max(4, right) + 'px';
-      el.panel.style.bottom = Math.max(4, bottom) + 'px';
+      const w = el.panel.offsetWidth || 300;
+      const h = el.panel.offsetHeight || 200;
+      const right = window.innerWidth - e.clientX + drag.dx - w;
+      const bottom = window.innerHeight - e.clientY + drag.dy - h;
+      const maxRight = Math.max(MARGIN, window.innerWidth - w - MARGIN);
+      const maxBottom = Math.max(MARGIN, window.innerHeight - h - MARGIN);
+      el.panel.style.right = Math.min(Math.max(MARGIN, right), maxRight) + 'px';
+      el.panel.style.bottom = Math.min(Math.max(MARGIN, bottom), maxBottom) + 'px';
     });
-    window.addEventListener('pointerup', () => { drag = null; });
+    headEl.addEventListener('pointerup', () => { drag = null; });
+    headEl.addEventListener('pointercancel', () => { drag = null; });
+    // 窗口缩放后把面板收回安全范围
+    window.addEventListener('resize', () => { if (el.panel.style.right) clampPanel(); });
+    setTimeout(clampPanel, 0);
 
     return {
       el,

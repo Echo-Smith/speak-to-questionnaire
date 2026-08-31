@@ -240,7 +240,11 @@
       },
 
       submit() {
-        const btn = nextButton();
+        const btn =
+          nextButton() ||
+          qa(document, 'button, input[type=submit], a[role=button]').find(
+            (b) => SUBMIT_RE.test(STQ.normText(b.textContent || b.value || '')) && STQ.isVisible(b)
+          );
         if (btn) btn.click();
       },
     };
@@ -257,7 +261,8 @@
     probe() {
       if (!/^(www\.)?([a-z0-9-]+\.)?(wjx\.cn|wjx\.top|sojump\.com)$/.test(location.hostname)) return null;
       const fields = qa(document, FIELD_SEL).filter(fieldVisible);
-      if (!fields.length || !nextButton()) return null;
+      // 放宽：只要识别到老版题目结构即可；缺 #ctlNext 时视为单页问卷，提交走按钮文本匹配
+      if (!fields.length) return null;
       return makeSurvey();
     },
   });

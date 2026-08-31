@@ -301,8 +301,7 @@
   STQ.Registry.register({
     name: 'generic',
     probe() {
-      if (location.hostname.endsWith('wjx.cn') || location.hostname.endsWith('sojump.com')) return null;
-      // 同步探测：首屏无标准表单时不再一票否决，交给 list() 的渲染等待
+      // 不按域名排除：专用适配器（wjx 老版选择器）失败时由本适配器兜底新版问卷星等自绘页面
       const first = collectQuestions();
       const meaningful = first.filter(
         (x) => x.type !== STQ.QTypes.UNSUPPORTED && (x.options.length || x.type === STQ.QTypes.TEXT)

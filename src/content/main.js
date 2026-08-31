@@ -99,7 +99,10 @@
 
   function scheduleProbe() {
     (function attempt(i) {
-      if (i >= RETRY_DELAYS.length) return;
+      if (i >= RETRY_DELAYS.length) {
+        console.warn('[STQ] 未识别到问卷页面：', location.href, '（若这是问卷填写页，请点面板"诊断"或联系适配）');
+        return;
+      }
       setTimeout(async () => {
         if (engine) return; // 已有实例探测成功
         if (i > 0 && !document.querySelector('input[type=radio],input[type=checkbox],textarea,[role=radio],[role=checkbox]')) {
