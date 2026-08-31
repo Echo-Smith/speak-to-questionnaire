@@ -8,10 +8,19 @@
   global.STQ_DEFAULTS = {
     enabled: true,
     llm: {
-      baseUrl: '',        // 例如 https://api.openai.com/v1
+      protocol: 'openai',   // openai | anthropic
+      authStyle: 'auto',    // auto | bearer | api-key | x-api-key
+      baseUrl: '',          // 例如 https://api.openai.com/v1 或 https://dots.example.com
       apiKey: '',
       model: '',
       temperature: 0.2,
+      maxTokens: 1024,      // anthropic 协议必填
+    },
+    asr: {
+      mode: 'webspeech',    // webspeech | api | llm-multimodal
+      baseUrl: '',          // OpenAI 兼容转写服务（…/v1）
+      apiKey: '',
+      model: 'whisper-1',
     },
     voice: {
       lang: 'zh-CN',

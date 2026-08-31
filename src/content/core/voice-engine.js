@@ -115,7 +115,7 @@
 
     beginListening() {
       if (this.asrCtl) this.asrCtl.stop();
-      this.asrCtl = STQ.ASR.start(this.settings.voice.lang, {
+      this.asrCtl = STQ.createASR(this.settings, {
         onPartial: (t) => this.ui.setTranscript(t),
         onFinal: (t) => this.handleFinal(t),
         onError: (e) => {

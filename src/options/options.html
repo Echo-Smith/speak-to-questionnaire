@@ -18,26 +18,66 @@
     #msg { margin-left: 10px; }
     .ok { color: #166b5b; } .err { color: #ad5b35; }
     select { padding: 6px; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
   <h1>语音问卷助手 · 设置</h1>
 
   <h2>LLM（BYOK，可选增强）</h2>
-  <p><small>填入任意 OpenAI 兼容服务（OpenAI / DeepSeek / Moonshot / 本地 Ollama 等）。不填则使用内置规则匹配，基础功能不受影响。</small></p>
-  <label>Base URL <small>（如 https://api.deepseek.com/v1）</small>
+  <p><small>填入任意 OpenAI 兼容或 Anthropic 兼容服务（OpenAI / DeepSeek / Moonshot / Ollama / Dots…）。不填则使用内置规则匹配，基础功能不受影响。</small></p>
+  <div class="row">
+    <label style="margin:0">接口协议
+      <select id="protocol">
+        <option value="openai">OpenAI 兼容（/v1/chat/completions）</option>
+        <option value="anthropic">Anthropic 兼容（/v1/messages）</option>
+      </select>
+    </label>
+    <label style="margin:0">鉴权方式
+      <select id="authStyle">
+        <option value="auto">自动（按协议默认）</option>
+        <option value="bearer">Authorization: Bearer</option>
+        <option value="api-key">api-key 头</option>
+        <option value="x-api-key">x-api-key 头</option>
+      </select>
+    </label>
+  </div>
+  <label>Base URL <small>（如 https://api.deepseek.com/v1；填域名根也可，自动补 /v1）</small>
     <input type="text" id="baseUrl" placeholder="https://api.openai.com/v1">
   </label>
   <label>API Key
     <input type="password" id="apiKey" placeholder="sk-..." autocomplete="off">
   </label>
-  <label>模型名 <small>（如 gpt-4o-mini / deepseek-chat）</small>
+  <label>模型名 <small>（如 gpt-4o-mini / deepseek-chat / claude-sonnet-4-5）</small>
     <input type="text" id="model" placeholder="gpt-4o-mini">
   </label>
   <div class="row">
     <button class="ghost" id="test">测试连通性</button>
     <span id="msg"></span>
   </div>
+
+  <h2>语音识别方式（ASR）</h2>
+  <div class="row">
+    <label style="margin:0">识别引擎
+      <select id="asrMode">
+        <option value="webspeech">浏览器内置（零配置，需 Chrome 系）</option>
+        <option value="api">自备转写服务（OpenAI 兼容 /v1/audio/transcriptions）</option>
+        <option value="llm-multimodal">LLM 多模态直转写（复用上方 LLM 配置，需支持 audio_url）</option>
+      </select>
+    </label>
+  </div>
+  <div id="asrApiBox">
+    <label>转写 Base URL <small>（如 https://api.openai.com/v1）</small>
+      <input type="text" id="asrBaseUrl" placeholder="https://api.openai.com/v1">
+    </label>
+    <label>转写 API Key
+      <input type="password" id="asrApiKey" placeholder="sk-..." autocomplete="off">
+    </label>
+    <label>转写模型名 <small>（如 whisper-1）</small>
+      <input type="text" id="asrModel" placeholder="whisper-1">
+    </label>
+  </div>
+  <p><small>说明：内置识别走浏览器厂商的语音服务；自备转写/LLM 转写在本地录音频块（约 5 秒）后由插件直连你配置的服务转写，本插件不经手中转。</small></p>
 
   <h2>语音交互</h2>
   <div class="row"><label>识别语言

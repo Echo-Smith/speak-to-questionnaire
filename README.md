@@ -28,11 +28,23 @@
 
 插件图标 → 设置页：
 
-- **Base URL**：OpenAI 兼容地址，如 `https://api.deepseek.com/v1`
+- **接口协议**：`OpenAI 兼容`（/v1/chat/completions）或 `Anthropic 兼容`（/v1/messages），可对接 Dots 等聚合平台与 Claude 系模型
+- **鉴权方式**：自动 / `Authorization: Bearer` / `api-key` 头 / `x-api-key` 头（Dots 平台用 `api-key`，Anthropic 官方用 `x-api-key`，"自动"会同时带上两种头以兼容）
+- **Base URL**：填到 `/v1` 或域名根均可（自动补全）
 - **API Key**：你的 Key（仅存本地 `chrome.storage.local`，不经过任何第三方服务器）
-- **模型名**：如 `deepseek-chat` / `gpt-4o-mini`
+- **模型名**：如 `deepseek-chat` / `claude-sonnet-4-5` / `dots3-note-prev`
 
 点「测试连通性」验证。LLM 用于：模糊口述的选项归一（"我觉得还是城里吧" → 选"城市"）、论述题书面整理。请求由插件后台直连你填的服务，与本项目作者无关。
+
+## 语音识别（ASR）三种方式
+
+| 方式 | 适用场景 | 配置 |
+|---|---|---|
+| 浏览器内置（默认） | Chrome/Edge，零配置 | 无 |
+| 自备转写服务 | 隐私可控 / 内网部署，OpenAI Whisper 形态（/v1/audio/transcriptions） | Base URL / Key / 模型（如 whisper-1，可用 groq、faster-whisper-server 等） |
+| LLM 多模态直转写 | 服务无转写端点但模型支持音频输入（audio_url，如 Dots） | 复用上方 LLM 配置，协议需为 OpenAI 兼容 |
+
+后两种在页面本地用 MediaRecorder 分块录音（约 5 秒/块）直连你配置的服务转写；配置缺失或失败时自动回退浏览器内置识别。
 
 ## 支持平台
 
@@ -75,10 +87,10 @@
 问卷页面（问卷星 DOM）
   → 平台适配器 adapters/wjx.js     归一化为统一题目模型 canonical.js
   → 语音交互引擎 voice-engine.js    指令/答案状态机
-       ├─ asr.js   语音识别（浏览器 SpeechRecognition）
+       ├─ createASR 工厂  语音识别（浏览器内置 / 转写API / LLM多模态，recorder.js）
        ├─ tts.js   题目朗读（speechSynthesis）
        ├─ matcher.js 规则匹配（本地兜底）
-       └─ llm.js   BYOK 增强（经 background 直连用户配置的服务）
+       └─ llm.js → background → llm-protocols.js（openai / anthropic 可插拔协议适配）
   → 答案写回：合成真实 DOM 事件，平台自身校验/逻辑跳转照常工作
 ```
 

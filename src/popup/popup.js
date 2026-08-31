@@ -26,6 +26,7 @@
     'src/content/core/matcher.js',
     'src/content/core/tts.js',
     'src/content/core/asr.js',
+    'src/content/core/recorder.js',
     'src/content/core/llm.js',
     'src/content/core/voice-engine.js',
     'src/content/overlay.js',
