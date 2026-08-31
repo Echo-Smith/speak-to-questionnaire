@@ -65,10 +65,15 @@
 
     currentQuestion() { return this.questions[this.idx]; }
 
-    presentQuestion() {
+    presentQuestion(forceRead) {
       const q = this.currentQuestion();
       if (!q) return;
       STQ.scrollIntoViewCenter(q.el);
+      const readAloud = forceRead === true || this.settings.voice.readQuestion !== false;
+      if (!readAloud) {
+        this.enterAnswerState();
+        return;
+      }
       let spoken = `第${q.topic}题。${q.title}。`;
       if (q.type === STQ.QTypes.TEXT) {
         spoken += '请直接说出你的回答，说完后说"结束作答"。';
@@ -203,7 +208,7 @@
       switch (cmd) {
         case 'next': await this.goNext(); break;
         case 'prev': await this.goPrev(); break;
-        case 'repeat': this.presentQuestion(); break;
+        case 'repeat': this.presentQuestion(true); break;
         case 'skip': await this.goNext(true); break;
         case 'submit': await this.trySubmit(); break;
         case 'stopread': STQ.TTS.cancel(); this.enterAnswerState(); break;

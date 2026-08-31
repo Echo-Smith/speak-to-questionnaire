@@ -28,6 +28,7 @@
     voice: {
       lang: 'zh-CN',
       rate: 1.0,
+      readQuestion: true,         // 是否朗读题目（关闭则直接进入聆听作答）
       readOptions: true,          // 朗读题目时是否朗读选项
       autoAdvanceSingle: true,    // 单选/量表说完自动下一题
       autoAdvanceMultiple: false, // 多选说完自动下一题（默认停留，需说"完成"）

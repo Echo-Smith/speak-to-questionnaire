@@ -41,6 +41,7 @@
   $('asrPrivate').checked = !!settings.asr.allowPrivateHosts;
   $('lang').value = settings.voice.lang;
   $('rate').value = settings.voice.rate;
+  $('readQuestion').checked = settings.voice.readQuestion !== false;
   $('readOptions').checked = settings.voice.readOptions;
   $('autoSingle').checked = settings.voice.autoAdvanceSingle;
   $('autoMulti').checked = settings.voice.autoAdvanceMultiple;
@@ -102,6 +103,7 @@
 
     settings.voice.lang = $('lang').value;
     settings.voice.rate = parseFloat($('rate').value) || 1.0;
+    settings.voice.readQuestion = $('readQuestion').checked;
     settings.voice.readOptions = $('readOptions').checked;
     settings.voice.autoAdvanceSingle = $('autoSingle').checked;
     settings.voice.autoAdvanceMultiple = $('autoMulti').checked;
