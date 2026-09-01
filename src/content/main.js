@@ -20,16 +20,12 @@
   let lastUrl = location.href;
 
   function wireUI() {
-    let micOn = false;
+    // 麦克风图标由引擎驱动（setMicOn 跟随 ASR 实际录音状态）；点击按引擎状态切换启停
     ui.onMicToggle(() => {
-      micOn = !micOn;
-      if (micOn) {
+      if (!engine || engine.state === 'idle') {
         engine.start();
-        if (engine.state !== 'idle') ui.setMicOn(true);
-        else micOn = false;
       } else {
         engine.stop();
-        ui.setMicOn(false);
       }
     });
 
@@ -84,6 +80,18 @@
     ui = STQ.createOverlay();
     engine = new STQ.VoiceEngine(survey, ui, settings);
     wireUI();
+
+    // 读题开关（面板即时生效并持久化）
+    ui.setSpeakerOn(settings.voice.readQuestion !== false);
+    ui.onSpeakerToggle(async () => {
+      settings.voice.readQuestion = !(settings.voice.readQuestion !== false);
+      ui.setSpeakerOn(settings.voice.readQuestion);
+      await stqSaveSettings(settings);
+      ui.setState(
+        settings.voice.readQuestion ? '读题已开启' : '读题已关闭：仅文字提示，直接聆听作答',
+        'ok'
+      );
+    });
 
     globalThis.__STQ_LIVE__ = { revive };
     return true;

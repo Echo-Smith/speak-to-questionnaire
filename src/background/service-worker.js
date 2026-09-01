@@ -85,6 +85,10 @@ function routeToTab(session, event) {
 
 async function handleChat(payload) {
   const settings = await stqLoadSettings();
+  // 设置页"测试连通性"用当前输入值（override），不依赖已保存配置
+  if (payload.override) {
+    settings.llm = Object.assign({}, settings.llm, payload.override);
+  }
   const llm = settings.llm;
   const check = stqValidateBaseUrl(llm.baseUrl, { allowPrivate: !!llm.allowPrivateHosts });
   if (!check.ok) return { ok: false, error: 'LLM 未配置：' + check.error };

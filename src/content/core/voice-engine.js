@@ -3,17 +3,14 @@
  *
  * 状态：
  *   idle        未启动
- *   speaking    正在朗读题目（此时仅响应"停止朗读"类打断指令）
- *   listening   等待作答/指令
+ *   speaking    正在朗读题目（此期间 ASR 暂停，避免识别到扬声器里的读题声）
+ *   listening   等待作答/指令（ASR 活跃）
  *   dictate     论述题听写中（仅"结束作答/说完了/写完了/完成作答/回答完毕"结束）
  *   essay       论述题整理预览（等待"确认/用原文/重说"）
  *   finished    全部答完，等待"提交/上一题"
  *
- * 流转规则（与产品定义一致）：
- *   - 单选/量表/下拉：匹配到选项即写入，默认自动下一题（可设置关闭）
- *   - 多选：追加/取消选择后停留，说"完成/下一题"才进入下一题
- *   - 填空/论述：进入听写，说完说"结束作答"；LLM 可用时可选整理（始终先预览）
- *   - 任意时刻可说"上一题"回退、"重复"重听题目、"跳过"略过
+ * 防串题机制：每道题一个会话纪元（epoch），presentQuestion 时 ASR 重启，
+ * 上一题残留的音频块与识别结果全部作废，杜绝"上一题的话答到下一题"。
  */
 (function () {
   'use strict';
@@ -22,12 +19,14 @@
   class VoiceEngine {
     constructor(survey, ui, settings) {
       this.survey = survey;
-      this.ui = ui; // overlay 接口 { setState, setTranscript, showEssay, hideEssay, setMicOn }
+      this.ui = ui; // overlay 接口 { setState, setTranscript, setQuestion, showEssay, hideEssay, setMicOn }
       this.settings = settings;
       this.state = 'idle';
       this.questions = [];
       this.idx = 0;
       this.asrCtl = null;
+      this.epoch = 0;        // 题目会话纪元：换题即失效
+      this.lastSeg = '';     // 听写去重：ASR 对同一段话常回传两次 final
       this.dictation = '';
       this.essayOriginal = '';
       this.essayCleaned = '';
@@ -46,13 +45,13 @@
         return;
       }
       this.idx = 0;
-      this.beginListening(); // 先开麦再朗读，避免漏听第一条指令
       this.presentQuestion();
     }
 
     stop() {
       this.state = 'idle';
-      if (this.asrCtl) { this.asrCtl.stop(); this.asrCtl = null; }
+      this.epoch++;
+      this.pauseASR();
       STQ.TTS.cancel();
       if (STQ.Focus) STQ.Focus.hide();
       this.ui.hideEssay();
@@ -61,75 +60,29 @@
       this.ui.setMicOn(false);
     }
 
-    /* ---------------- 题目呈现 ---------------- */
+    /* ---------------- ASR 会话管理 ---------------- */
 
-    currentQuestion() { return this.questions[this.idx]; }
-
-    presentQuestion(forceRead) {
-      const q = this.currentQuestion();
-      if (!q) return;
-      STQ.scrollIntoViewCenter(q.el);
-      const readAloud = forceRead === true || this.settings.voice.readQuestion !== false;
-      if (!readAloud) {
-        this.enterAnswerState();
-        return;
-      }
-      let spoken = `第${q.topic}题。${q.title}。`;
-      if (q.type === STQ.QTypes.TEXT) {
-        spoken += '请直接说出你的回答，说完后说"结束作答"。';
-      } else if (this.settings.voice.readOptions && q.options.length) {
-        const optText = q.options
-          .map((o, i) => `${letterOf(i)}、${STQ.normText(o.label).replace(/^[A-Ja-j]、/, '')}`)
-          .join('。');
-        spoken += q.type === STQ.QTypes.MULTIPLE
-          ? `请选择，可多选：${optText}。选择后说"完成"进入下一题。`
-          : `请选择：${optText}。`;
-      } else if (q.type === STQ.QTypes.MULTIPLE) {
-        spoken += '可多选，选择后说"完成"进入下一题。';
-      }
-      this.setStateSpeaking();
-      if (STQ.Focus && this.settings.voice.highlight) {
-        STQ.Focus.focus(q.el, 'speaking', `读题中 · 第${q.topic}题`);
-      }
-      this.ui.setState(`第${q.topic}题（${this.idx + 1}/${this.questions.length}）· 正在朗读`, 'speaking');
-      STQ.TTS.speak(spoken, () => {
-        if (this.state === 'speaking') this.enterAnswerState();
-      });
+    /** 开启新一轮识别（每道题一次；旧会话的缓冲音频与结果全部作废） */
+    restartASR() {
+      this.epoch++;
+      if (this.asrCtl) { this.asrCtl.stop(); this.asrCtl = null; }
+      this.beginListening();
     }
 
-    setStateSpeaking() { this.state = 'speaking'; }
-
-    enterAnswerState() {
-      const q = this.currentQuestion();
-      if (!q) return;
-      if (q.type === STQ.QTypes.TEXT) {
-        this.state = 'dictate';
-        this.dictation = '';
-        if (STQ.Focus && this.settings.voice.highlight) {
-          STQ.Focus.focus(q.el, 'listening', '听写中 · 请说话');
-        }
-        this.ui.setState('听写中…说完请说"结束作答"', 'listening');
-      } else {
-        this.state = 'listening';
-        const filled = q.answerText();
-        if (STQ.Focus && this.settings.voice.highlight) {
-          STQ.Focus.focus(q.el, 'listening', filled ? '请作答 · 补充或修改' : '请作答');
-        }
-        this.ui.setState(
-          filled ? `等待作答（已答：${filled}）` : '聆听中…',
-          'listening'
-        );
-      }
+    /** 朗读期间暂停识别（防止把扬声器里的读题声识别成回答） */
+    pauseASR() {
+      if (this.asrCtl) { this.asrCtl.stop(); this.asrCtl = null; }
+      this.ui.setMicOn(false);
     }
-
-    /* ---------------- ASR 接入 ---------------- */
 
     beginListening() {
-      if (this.asrCtl) this.asrCtl.stop();
+      if (this.asrCtl) return;
+      const myEpoch = this.epoch;
       this.asrCtl = STQ.createASR(this.settings, {
-        onPartial: (t) => this.ui.setTranscript(t),
-        onFinal: (t) => this.handleFinal(t),
+        onPartial: (t) => { if (myEpoch === this.epoch) this.ui.setTranscript(t); },
+        onFinal: (t) => { if (myEpoch === this.epoch) this.handleFinal(t); },
         onError: (e) => {
+          if (myEpoch !== this.epoch) return;
           const q = this.currentQuestion();
           if (q && q.el && STQ.Focus && this.settings.voice.highlight) {
             STQ.Focus.focus(q.el, 'error', '识别异常');
@@ -137,22 +90,12 @@
           this.ui.setState(e.message + '（点击麦克风重试）', 'error');
         },
       });
+      if (this.state !== 'idle') this.ui.setMicOn(true);
     }
 
     handleFinal(text) {
       if (this.state === 'idle' || this.busy) return;
       this.ui.setTranscript(text);
-
-      // 朗读中：只响应打断
-      if (this.state === 'speaking') {
-        const cmd = STQ.Matcher.detectCommand(text);
-        if (cmd && cmd.cmd === 'stopread') {
-          STQ.TTS.cancel();
-          this.enterAnswerState();
-        }
-
-        return;
-      }
 
       // 听写模式
       if (this.state === 'dictate') {
@@ -176,6 +119,75 @@
       if (this.state === 'listening') {
         this.handleListening(text);
       }
+    }
+
+    /* ---------------- 题目呈现 ---------------- */
+
+    currentQuestion() { return this.questions[this.idx]; }
+
+    presentQuestion(forceRead) {
+      const q = this.currentQuestion();
+      if (!q) return;
+      STQ.scrollIntoViewCenter(q.el);
+      this.ui.setQuestion(`第${q.topic}题 ${q.title}`);
+
+      // 换题：作废旧 ASR 会话（残留音频/结果不再处理）
+      this.epoch++;
+      this.pauseASR();
+
+      const readAloud = forceRead === true || this.settings.voice.readQuestion !== false;
+      if (!readAloud) {
+        this.enterAnswerState();
+        return;
+      }
+
+      let spoken = `第${q.topic}题。${q.title}。`;
+      if (q.type === STQ.QTypes.TEXT) {
+        spoken += '请直接说出你的回答，说完后说"结束作答"。';
+      } else if (this.settings.voice.readOptions && q.options.length) {
+        const optText = q.options
+          .map((o, i) => `${letterOf(i)}、${STQ.normText(o.label).replace(/^[A-Ja-j]、/, '')}`)
+          .join('。');
+        spoken += q.type === STQ.QTypes.MULTIPLE
+          ? `请选择，可多选：${optText}。选择后说"完成"进入下一题。`
+          : `请选择：${optText}。`;
+      } else if (q.type === STQ.QTypes.MULTIPLE) {
+        spoken += '可多选，选择后说"完成"进入下一题。';
+      }
+      this.state = 'speaking';
+      if (STQ.Focus && this.settings.voice.highlight) {
+        STQ.Focus.focus(q.el, 'speaking', `读题中 · 第${q.topic}题`);
+      }
+      this.ui.setState(`第${q.topic}题（${this.idx + 1}/${this.questions.length}）· 正在朗读`, 'speaking');
+      // 朗读期间 ASR 保持暂停，读完自动恢复
+      STQ.TTS.speak(spoken, () => {
+        if (this.state === 'speaking') this.enterAnswerState();
+      });
+    }
+
+    enterAnswerState() {
+      const q = this.currentQuestion();
+      if (!q) return;
+      if (q.type === STQ.QTypes.TEXT) {
+        this.state = 'dictate';
+        this.dictation = '';
+        this.lastSeg = '';
+        if (STQ.Focus && this.settings.voice.highlight) {
+          STQ.Focus.focus(q.el, 'listening', '听写中 · 请说话');
+        }
+        this.ui.setState('听写中…说完请说"结束作答"', 'listening');
+      } else {
+        this.state = 'listening';
+        const filled = q.answerText();
+        if (STQ.Focus && this.settings.voice.highlight) {
+          STQ.Focus.focus(q.el, 'listening', filled ? '请作答 · 补充或修改' : '请作答');
+        }
+        this.ui.setState(
+          filled ? `等待作答（已答：${filled}）` : '聆听中…',
+          'listening'
+        );
+      }
+      this.restartASR(); // 进入作答态才开麦（epoch 已在 presentQuestion 自增）
     }
 
     /* ---------------- 指令处理 ---------------- */
@@ -211,7 +223,6 @@
         case 'repeat': this.presentQuestion(true); break;
         case 'skip': await this.goNext(true); break;
         case 'submit': await this.trySubmit(); break;
-        case 'stopread': STQ.TTS.cancel(); this.enterAnswerState(); break;
         default: break;
       }
     }
@@ -234,6 +245,8 @@
       if (this.settings.voice.autoAdvanceSingle) {
         await sleep(600);
         await this.goNext();
+      } else {
+        this.enterAnswerState();
       }
     }
 
@@ -277,15 +290,35 @@
     /* ---------------- 论述题 ---------------- */
 
     handleDictation(text) {
-      const endPhrase = STQ.Matcher.isDictateEnd(text);
+      const seg = String(text || '').trim();
+      if (!seg) return;
+      // ASR 对同一段语音常回传两次相同 final（restart 后尤其常见），去重
+      if (seg === this.lastSeg) {
+        this.ui.setState(`听写中（${this.dictation.length}字）… 说"结束作答"完成`, 'listening');
+        return;
+      }
+
+      const endPhrase = STQ.Matcher.isDictateEnd(seg);
       if (endPhrase) {
-        const cleanedTail = text.trim().replace(new RegExp(endPhrase + '[\\s。.!！]*$'), '');
-        if (cleanedTail) this.dictation += (this.dictation ? '。' : '') + cleanedTail;
+        const tail = seg.replace(new RegExp(endPhrase + '[\\s。.!！]*$'), '').trim();
+        if (tail && tail !== this.lastSeg) this.appendDictation(tail);
         this.finishDictation();
         return;
       }
-      this.dictation += (this.dictation ? '。' : '') + text.trim();
+      this.lastSeg = seg;
+      this.appendDictation(seg);
       this.ui.setState(`听写中（${this.dictation.length}字）… 说"结束作答"完成`, 'listening');
+    }
+
+    /** 追加听写段：只在上一段没有句末标点时补句号，避免"输入后自动加。" */
+    appendDictation(seg) {
+      if (this.dictation) {
+        const prev = this.dictation;
+        const needSep = !/[。！？，、；.!?,;\n]$/.test(prev);
+        this.dictation = prev + (needSep ? '。' : '') + seg;
+      } else {
+        this.dictation = seg;
+      }
     }
 
     async finishDictation() {
@@ -301,7 +334,7 @@
         this.state = 'busy';
         this.ui.setState('正在整理…', 'busy');
         try {
-          this.essayCleaned = await STQ.LLM.cleanEssay(this.essayOriginal);
+          this.essayCleaned = await STQ.LLM.cleanEssay(this.essayOriginal, q && q.title);
         } catch (e) {
           this.essayCleaned = '';
           this.ui.setState('整理失败（' + e.message + '），可使用原文', 'error');
@@ -319,6 +352,7 @@
         onRetry: () => {
           this.state = 'dictate';
           this.dictation = '';
+          this.lastSeg = '';
           this.ui.hideEssay();
           this.ui.setState('听写中…说完请说"结束作答"', 'listening');
         },
@@ -348,6 +382,7 @@
         this.ui.hideEssay();
         this.state = 'dictate';
         this.dictation = '';
+        this.lastSeg = '';
         this.ui.setState('听写中…说完请说"结束作答"', 'listening');
       }
     }

@@ -69,6 +69,8 @@
 
   // 保存（用户手势内申请 LLM / ASR 域名的主机权限）
   $('save').addEventListener('click', async () => {
+    const form = validateLlmForm();
+    if (!form.ok) return msg($('saveMsg'), form.error, false);
     const check = stqValidateBaseUrl($('baseUrl').value, { allowPrivate: $('llmPrivate').checked });
     if (!check.ok) return msg($('saveMsg'), 'LLM Base URL 无效：' + check.error, false);
 
@@ -114,14 +116,45 @@
     msg($('saveMsg'), '已保存 ✓', true);
   });
 
-  // 连通性测试
+  // 连通性测试：直接读取当前输入框的值（不依赖"保存"），并做必填校验
   $('test').addEventListener('click', async () => {
     msg($('msg'), '测试中…', true);
+    const check = stqValidateBaseUrl($('baseUrl').value, { allowPrivate: $('llmPrivate').checked });
+    if (!check.ok) return msg($('msg'), 'Base URL 无效：' + check.error, false);
+    if (!$('apiKey').value.trim()) return msg($('msg'), '必填项缺失：API Key', false);
+    if (!$('model').value.trim()) return msg($('msg'), '必填项缺失：模型名', false);
+
+    const p = await requestOriginPermission(check.url, $('llmPrivate').checked);
+    if (!p.ok) return msg($('msg'), p.error, false);
+
     const resp = await chrome.runtime.sendMessage({
       type: 'stq-llm-chat',
-      payload: { messages: [{ role: 'user', content: '回复"ok"两个字' }], temperature: 0 },
+      payload: {
+        messages: [{ role: 'user', content: '回复"ok"两个字' }],
+        temperature: 0,
+        override: {
+          protocol: $('protocol').value,
+          authStyle: $('authStyle').value,
+          baseUrl: check.url,
+          apiKey: $('apiKey').value.trim(),
+          model: $('model').value.trim(),
+          maxTokens: 1024,
+          temperature: 0,
+          allowPrivateHosts: $('llmPrivate').checked,
+        },
+      },
     });
     if (resp && resp.ok) msg($('msg'), '连接成功 ✓', true);
     else msg($('msg'), (resp && resp.error) || '失败', false);
   });
+
+  // 保存前必填校验：LLM 三项要么全空（可选不用），要么配齐
+  function validateLlmForm() {
+    const filled = [$('baseUrl').value.trim(), $('apiKey').value.trim(), $('model').value.trim()].filter(Boolean);
+    if (filled.length === 0) return { ok: true }; // 整组可选，全空放行
+    if (!$('baseUrl').value.trim()) return { ok: false, error: '必填项缺失：Base URL' };
+    if (!$('apiKey').value.trim()) return { ok: false, error: '必填项缺失：API Key' };
+    if (!$('model').value.trim()) return { ok: false, error: '必填项缺失：模型名' };
+    return { ok: true };
+  }
 })();

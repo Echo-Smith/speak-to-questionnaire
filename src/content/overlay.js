@@ -34,7 +34,10 @@
     .actions button, .mic { border: 0; border-radius: 8px; padding: 7px 10px; cursor: pointer; font-weight: 600; }
     .btn-primary { background: #166b5b; color: #fff; flex: 1; }
     .btn-ghost { background: #ede9df; color: #455149; }
+    .question { color: #4f5b53; font-size: 12px; margin-top: 4px; min-height: 16px; word-break: break-all; }
     .foot { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+    .mic.tts { width: 36px; height: 36px; font-size: 15px; background: #ede9df; color: #455149; }
+    .mic.tts.off { background: #b8b2a4; color: #fff; opacity: .75; }
     .mic { width: 46px; height: 46px; border-radius: 50%; background: #166b5b; color: #fff; font-size: 20px; flex: none; }
     .mic.on { background: #ad5b35; }
     .hint { color: #8a938c; font-size: 11px; flex: 1; }
@@ -62,6 +65,7 @@
         </div>
         <div class="body">
           <div class="state" data-el="state">点击麦克风开始</div>
+          <div class="question" data-el="question"></div>
           <div class="transcript" data-el="transcript"></div>
           <div class="essay" data-el="essay">
             <div class="tip" data-el="essayTip"></div>
@@ -73,7 +77,8 @@
             </div>
           </div>
           <div class="foot">
-            <button class="mic" data-el="mic" title="开始/停止">🎙</button>
+            <button class="mic" data-el="mic" title="开始/停止语音作答">🎙</button>
+            <button class="mic tts" data-el="tts" title="读题开关：关闭后不朗读，仅文字提示">🔊</button>
             <div class="hint">${HINT}</div>
             <button class="settings" data-el="settings">设置</button>
             <button class="settings" data-el="diag" title="复制题目识别结果，用于适配新平台">诊断</button>
@@ -89,11 +94,12 @@
     }
 
     const handlers = {
-      onMicToggle: null, onSettings: null, onDiagnostics: null, onEssayConfirm: null,
-      onEssayOriginal: null, onEssayRetry: null,
+      onMicToggle: null, onSpeakerToggle: null, onSettings: null, onDiagnostics: null,
+      onEssayConfirm: null, onEssayOriginal: null, onEssayRetry: null,
     };
 
     el.mic.addEventListener('click', () => handlers.onMicToggle && handlers.onMicToggle());
+    el.tts.addEventListener('click', () => handlers.onSpeakerToggle && handlers.onSpeakerToggle());
     el.close.addEventListener('click', () => { host.style.display = 'none'; });
     el.settings.addEventListener('click', () => {
       chrome.runtime.sendMessage({ type: 'stq-open-options' });
@@ -150,6 +156,7 @@
     return {
       el,
       onMicToggle(fn) { handlers.onMicToggle = fn; },
+      onSpeakerToggle(fn) { handlers.onSpeakerToggle = fn; },
       onSettings(fn) { handlers.onSettings = fn; },
       onDiagnostics(fn) { handlers.onDiagnostics = fn; },
 
@@ -160,8 +167,18 @@
       },
       setTranscript(text) { el.transcript.textContent = text || ''; },
       setMicOn(on) {
+        // 麦克风图标跟随 ASR 实际状态：listening=停止按钮（录音中），其余=🎙
         el.mic.classList.toggle('on', on);
         el.mic.textContent = on ? '⏹' : '🎙';
+        el.mic.title = on ? '正在录音，点击停止' : '开始语音作答';
+      },
+      setSpeakerOn(on) {
+        el.tts.classList.toggle('off', !on);
+        el.tts.textContent = on ? '🔊' : '🔇';
+        el.tts.title = on ? '读题：开（点击关闭）' : '读题：关（仅文字提示，点击开启）';
+      },
+      setQuestion(text) {
+        el.question.textContent = text || '';
       },
       showEssay({ original, cleaned, onConfirm, onUseOriginal, onRetry }) {
         el.essay.style.display = 'block';
