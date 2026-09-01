@@ -159,20 +159,20 @@
     const mime = /mp4/.test(blob.type) ? 'audio/mp4' : 'audio/webm';
     const prompt = '请逐字转写这段音频。';
 
-    // 通道 A：input_audio base64 内联块（OpenAI Chat Audio 形态，多数网关直接支持）
-    // 通道 B：audio_url data URL（Dots 等文档示例形态；部分网关仅接受公网 URL，失败则报明确原因）
+    // 通道顺序按实测确定：audio_url + data URL 在 Dots（dots3-note-prev）实测可用；
+    // input_audio 在 Dots 被拒（400），作为其他网关的兜底通道。
     const attempts = [
-      {
-        label: 'input_audio',
-        blocks: [
-          { type: 'input_audio', input_audio: { data: b64, format: /mp4/.test(mime) ? 'mp4' : 'webm' } },
-          { type: 'text', text: prompt },
-        ],
-      },
       {
         label: 'audio_url',
         blocks: [
           { type: 'audio_url', audio_url: { url: dataUrl } },
+          { type: 'text', text: prompt },
+        ],
+      },
+      {
+        label: 'input_audio',
+        blocks: [
+          { type: 'input_audio', input_audio: { data: b64, format: /mp4/.test(mime) ? 'mp4' : 'webm' } },
           { type: 'text', text: prompt },
         ],
       },

@@ -65,12 +65,17 @@
         if (typeof payload.temperature === 'number') body.temperature = payload.temperature;
         else if (typeof llm.temperature === 'number') body.temperature = llm.temperature;
         if (payload.json) body.response_format = { type: 'json_object' };
+        // 推理模型（Dots dots3 等）思考会耗尽 max_tokens 导致正文为空；不支持该字段的网关通常忽略之
+        if (llm.disableThinking !== false) body.chat_template_kwargs = { enable_thinking: false };
         return { url: joinUrl(llm.baseUrl, 'chat/completions'), headers: buildHeaders(llm), body };
       },
       parseResponse(data) {
         const msg = data && data.choices && data.choices[0] && data.choices[0].message;
         if (!msg) return '';
-        return typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+        let c = msg.content;
+        if (Array.isArray(c)) c = c.filter((b) => b.type === 'text').map((b) => b.text || '').join('');
+        if (typeof c !== 'string') return '';
+        return c;
       },
     },
 

@@ -14,7 +14,8 @@
       apiKey: '',
       model: '',
       temperature: 0.2,
-      maxTokens: 1024,      // anthropic 协议必填
+      maxTokens: 2048,      // anthropic 协议必填；推理模型思考也占 token
+      disableThinking: true,    // 推理模型（如 Dots dots3）关闭思考，避免 token 被思考耗尽
       allowPrivateHosts: false, // 显式放行本地/内网地址（如 Ollama）
     },
     asr: {

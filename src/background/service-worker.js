@@ -122,6 +122,14 @@ async function handleChat(payload) {
 
   const data = await res.json();
   const content = proto.parseResponse(data);
-  if (!content) return { ok: false, error: 'LLM 返回为空' };
+  if (!content) {
+    const finish = data && data.choices && data.choices[0] && data.choices[0].finish_reason;
+    const hasReasoning = !!(data && data.choices && data.choices[0] && data.choices[0].message
+      && data.choices[0].message.reasoning_content);
+    if (finish === 'length' && hasReasoning) {
+      return { ok: false, error: '模型思考耗尽了 max_tokens（正文为空）。请确认已开启"关闭思考"，或调大 maxTokens' };
+    }
+    return { ok: false, error: 'LLM 返回为空' };
+  }
   return { ok: true, content };
 }

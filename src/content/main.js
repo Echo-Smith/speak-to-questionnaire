@@ -108,7 +108,8 @@
   function scheduleProbe() {
     (function attempt(i) {
       if (i >= RETRY_DELAYS.length) {
-        console.warn('[STQ] 未识别到问卷页面：', location.href, '（若这是问卷填写页，请点面板"诊断"或联系适配）');
+        console.warn('[STQ] 首轮探测未识别到问卷：', location.href, '→ 挂载 DOM 监听，等待题目动态渲染');
+        watchDom();
         return;
       }
       setTimeout(async () => {
@@ -122,6 +123,27 @@
         if (!ok) attempt(i + 1);
       }, RETRY_DELAYS[i]);
     })(0);
+  }
+
+  // 动态渲染问卷（如点击"开始测试"后才渲染题目）：监听 DOM 变化，出现题目控件时重探一次
+  let domWatchArmed = false;
+  let domWatchTimer = 0;
+  function watchDom() {
+    if (domWatchArmed || engine) return;
+    domWatchArmed = true;
+    const obs = new MutationObserver(() => {
+      if (engine) { obs.disconnect(); return; }
+      clearTimeout(domWatchTimer);
+      // 防抖 600ms，等渲染完一批节点
+      domWatchTimer = setTimeout(async () => {
+        if (engine) { obs.disconnect(); return; }
+        if (!document.querySelector('input[type=radio],input[type=checkbox],textarea,[role=radio],[role=checkbox]')) return;
+        const ok = await boot();
+        if (ok && ui) ui.setState('已识别到问卷，点击麦克风开始', 'ok');
+        if (ok) obs.disconnect();
+      }, 600);
+    });
+    obs.observe(document.documentElement, { childList: true, subtree: true });
   }
 
   // SPA 路由变化监听：pushState/replaceState 不触发原生事件，用轻量轮询

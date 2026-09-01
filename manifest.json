@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "语音问卷助手 Speak-to-Questionnaire",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "开源问卷语音作答助手：朗读题目、开口作答、说\"下一题\"流转。自带 BYOK（OpenAI 协议）LLM 增强，当前适配问卷星。",
   "permissions": [
     "storage",

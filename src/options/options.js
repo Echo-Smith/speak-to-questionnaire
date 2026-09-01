@@ -33,6 +33,7 @@
   $('apiKey').value = settings.llm.apiKey;
   $('model').value = settings.llm.model;
   $('llmPrivate').checked = !!settings.llm.allowPrivateHosts;
+  $('disableThinking').checked = settings.llm.disableThinking !== false;
   $('asrMode').value = settings.asr.mode;
   $('asrPrefer').value = settings.asr.prefer || 'browser-first';
   $('asrBaseUrl').value = settings.asr.baseUrl;
@@ -80,6 +81,7 @@
     settings.llm.apiKey = $('apiKey').value.trim();
     settings.llm.model = $('model').value.trim();
     settings.llm.allowPrivateHosts = $('llmPrivate').checked;
+    settings.llm.disableThinking = $('disableThinking').checked;
 
     const mode = $('asrMode').value;
     settings.asr.mode = mode;
@@ -141,6 +143,7 @@
           maxTokens: 1024,
           temperature: 0,
           allowPrivateHosts: $('llmPrivate').checked,
+          disableThinking: $('disableThinking').checked,
         },
       },
     });
