@@ -7,6 +7,7 @@
 
   let queue = [];
   let speaking = false;
+  let activeWatch = 0;
   let rate = 1.0;
   let lang = 'zh-CN';
 
@@ -43,8 +44,20 @@
     u.rate = rate;
     const v = pickVoice();
     if (v) u.voice = v;
-    u.onend = () => playNext(onDone);
-    u.onerror = () => playNext(onDone);
+
+    // Chrome 顽疾：speechSynthesis 偶发不触发 onend（尤其长句/切后台），
+    // 用"预估朗读时长 ×1.6 + 3s"的 watchdog 兜底推进，否则引擎永远停在朗读态
+    let finished = false;
+    const advance = () => {
+      if (finished) return;
+      finished = true;
+      clearTimeout(watch);
+      playNext(onDone);
+    };
+    const est = Math.max(2500, (text.length / Math.max(1, rate)) * 260);
+    activeWatch = setTimeout(advance, est + 3000);
+    u.onend = advance;
+    u.onerror = advance;
     window.speechSynthesis.speak(u);
   }
 
@@ -70,6 +83,8 @@
     cancel() {
       queue = [];
       speaking = false;
+      clearTimeout(activeWatch);
+      activeWatch = 0;
       try { window.speechSynthesis.cancel(); } catch (_) { /* ignore */ }
     },
   };

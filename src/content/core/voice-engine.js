@@ -51,6 +51,7 @@
     stop() {
       this.state = 'idle';
       this.epoch++;
+      clearTimeout(this.asrWatch);
       this.pauseASR();
       STQ.TTS.cancel();
       if (STQ.Focus) STQ.Focus.hide();
@@ -78,9 +79,17 @@
     beginListening() {
       if (this.asrCtl) return;
       const myEpoch = this.epoch;
+      this.lastAsrEventAt = Date.now();
+      clearTimeout(this.asrWatch);
+      // 静默 watchdog：20 秒无任何识别事件（多为麦克风授权缺失/识别方式不通），给出可操作提示
+      this.asrWatch = setTimeout(() => {
+        if (myEpoch !== this.epoch || this.state === 'idle' || this.asrCtl == null) return;
+        if (Date.now() - this.lastAsrEventAt < 20000) return;
+        this.ui.setState('20 秒未收到语音数据：请确认①设置页已「授权麦克风」②识别方式配置有效（面板左侧为当前引擎）', 'error');
+      }, 20000);
       this.asrCtl = STQ.createASR(this.settings, {
-        onPartial: (t) => { if (myEpoch === this.epoch) this.ui.setTranscript(t); },
-        onFinal: (t) => { if (myEpoch === this.epoch) this.handleFinal(t); },
+        onPartial: (t) => { if (myEpoch === this.epoch) { this.lastAsrEventAt = Date.now(); this.ui.setTranscript(t); } },
+        onFinal: (t) => { if (myEpoch === this.epoch) { this.lastAsrEventAt = Date.now(); this.handleFinal(t); } },
         onError: (e) => {
           if (myEpoch !== this.epoch) return;
           const q = this.currentQuestion();
@@ -159,9 +168,10 @@
         STQ.Focus.focus(q.el, 'speaking', `读题中 · 第${q.topic}题`);
       }
       this.ui.setState(`第${q.topic}题（${this.idx + 1}/${this.questions.length}）· 正在朗读`, 'speaking');
-      // 朗读期间 ASR 保持暂停，读完自动恢复
+      // 朗读期间 ASR 保持暂停，读完自动恢复；epoch 保证跳题后的过期回调不打断新题
+      const myEpoch = this.epoch;
       STQ.TTS.speak(spoken, () => {
-        if (this.state === 'speaking') this.enterAnswerState();
+        if (this.state === 'speaking' && myEpoch === this.epoch) this.enterAnswerState();
       });
     }
 

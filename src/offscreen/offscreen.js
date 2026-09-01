@@ -85,7 +85,14 @@
     (async () => {
       let stream;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // offscreen 无 UI：若扩展源麦克风授权未完成，getUserMedia 可能永久挂起，超时给出指引
+        stream = await Promise.race([
+          navigator.mediaDevices.getUserMedia({ audio: true }),
+          new Promise((_, reject) => setTimeout(
+            () => reject(new Error('麦克风打开超时（12 秒）。请到插件设置页点「🎤 授权麦克风」后重试')),
+            12000
+          )),
+        ]);
       } catch (e) {
         callbacks.onError(new Error(
           (micDenied(e) ? '扩展尚未获得麦克风权限：' + MIC_HINT : '麦克风打开失败：' + (e.message || e))
@@ -93,6 +100,7 @@
         callbacks.onEnd();
         return;
       }
+      if (callbacks.onPartial) callbacks.onPartial('（已开麦 · 录音中）');
 
       const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find(
         (m) => window.MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)
