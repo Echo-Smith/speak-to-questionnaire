@@ -74,7 +74,7 @@ git clone https://github.com/Echo-Smith/speak-to-questionnaire.git
 
 | 引擎 | 适用场景 | 配置 |
 |---|---|---|
-| 浏览器内置 | https 页面，零配置 | 无 |
+| 浏览器内置 | **Chrome** + https 页面，零配置（Edge 无内置语音识别服务，此路不通，会自动降级） | 无 |
 | 自备转写服务 | OpenAI Whisper 形态（/v1/audio/transcriptions），隐私可控/内网部署 | Base URL / Key / 模型（如 whisper-1、groq、faster-whisper-server） |
 | LLM 多模态直转写 | 服务无转写端点但模型支持音频输入（audio_url，如 Dots） | 复用 LLM 配置，需 OpenAI 协议 |
 | 扩展内置识别 | http 页面的兜底 | 首次在插件弹窗点一次「授权麦克风」 |

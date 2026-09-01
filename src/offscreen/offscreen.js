@@ -113,7 +113,8 @@
         if (stopped || !event.data || event.data.size < MIN_CHUNK_BYTES) return;
         if (callbacks.onPartial) callbacks.onPartial('（识别中…）');
         try {
-          const text = await transcribe(event.data, ext);
+          const { blob, ext: wavExt } = await toWavOrOriginal(event.data);
+          const text = await transcribe(blob, wavExt);
           if (!stopped && text && text.trim()) {
             if (callbacks.onPartial) callbacks.onPartial('');
             callbacks.onFinal(text.trim());
@@ -140,6 +141,50 @@
     return /\/v\d+[a-z]*$/.test(b) ? b : b + '/v1';
   }
 
+  /**
+   * 统一转码为 16kHz 单声道 WAV：浏览器录音产生 audio/webm;codecs=opus，
+   * 多数转写服务与 Dots 等多模态网关不收 webm（实测 400/拒收），WAV 全兼容。
+   * 解码失败时回传原始 Blob（让服务端错误可见，而不是静默失败）。
+   */
+  async function toWavOrOriginal(blob) {
+    try {
+      const buf = await blob.arrayBuffer();
+      const AC = window.AudioContext || window.webkitAudioContext;
+      const ctx = new AC();
+      let rendered;
+      try {
+        const audio = await ctx.decodeAudioData(buf);
+        const len = Math.max(1, Math.ceil(audio.duration * 16000));
+        const off = new OfflineAudioContext(1, len, 16000);
+        const src = off.createBufferSource();
+        src.buffer = audio;
+        src.connect(off.destination);
+        src.start();
+        rendered = await off.startRendering();
+      } finally {
+        ctx.close();
+      }
+      const ch = rendered.getChannelData(0);
+      const buf2 = new ArrayBuffer(44 + ch.length * 2);
+      const v = new DataView(buf2);
+      const ws = (o, str) => { for (let i = 0; i < str.length; i++) v.setUint8(o + i, str.charCodeAt(i)); };
+      ws(0, 'RIFF'); v.setUint32(4, 36 + ch.length * 2, true); ws(8, 'WAVE');
+      ws(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+      v.setUint32(24, 16000, true); v.setUint32(28, 32000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+      ws(36, 'data'); v.setUint32(40, ch.length * 2, true);
+      let o = 44;
+      for (let i = 0; i < ch.length; i++, o += 2) {
+        const x = Math.max(-1, Math.min(1, ch[i]));
+        v.setInt16(o, x < 0 ? x * 0x8000 : x * 0x7fff, true);
+      }
+      return { blob: new Blob([buf2], { type: 'audio/wav' }), ext: 'wav' };
+    } catch (e) {
+      console.warn('[STQ] WAV 转码失败，回退原始录音：', e);
+      const ext = /mp4/.test(blob.type || '') ? 'm4a' : 'webm';
+      return { blob, ext };
+    }
+  }
+
   async function transcribeApi(blob, ext, settings, base) {
     const fd = new FormData();
     fd.append('file', blob, 'audio.' + ext);
@@ -164,7 +209,6 @@
       r.readAsDataURL(blob);
     });
     const b64 = String(dataUrl).split(',')[1];
-    const mime = /mp4/.test(blob.type) ? 'audio/mp4' : 'audio/webm';
     const prompt = '请逐字转写这段音频。';
 
     // 通道顺序按实测确定：audio_url + data URL 在 Dots（dots3-note-prev）实测可用；
@@ -180,7 +224,7 @@
       {
         label: 'input_audio',
         blocks: [
-          { type: 'input_audio', input_audio: { data: b64, format: /mp4/.test(mime) ? 'mp4' : 'webm' } },
+          { type: 'input_audio', input_audio: { data: b64, format: 'wav' } },
           { type: 'text', text: prompt },
         ],
       },
