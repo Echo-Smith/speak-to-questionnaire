@@ -42,12 +42,43 @@
 
 下载新版 zip 覆盖解压目录 → `chrome://extensions` 页面点击该扩展卡片上的 **「重新加载」** 按钮（🔄 图标）即可，设置会保留。
 
-### 从源码安装
+### 从源码安装（v0.6.0 起 UI 为 React + shadcn/ui，需先构建）
 
 ```bash
 git clone https://github.com/Echo-Smith/speak-to-questionnaire.git
-# 然后 chrome://extensions → 开发者模式 → 加载已解压的扩展程序 → 选择仓库目录
+cd speak-to-questionnaire
+npm install
+npm run build
+# 然后 chrome://extensions → 开发者模式 → 加载已解压的扩展程序 → 选择 dist/app 目录
 ```
+
+> 不想装 Node？直接用 [Releases](https://github.com/Echo-Smith/speak-to-questionnaire/releases) 里已构建好的 zip（方式一）。
+
+## 开发
+
+**技术栈**：UI 层 React 18 + shadcn/ui（Tailwind CSS + Radix primitives），构建用 Vite；语音引擎与平台适配器保持原生 JS（零依赖、可直接审计）。
+
+```
+src/
+├── ui/                 # React UI（shadcn/ui 组件 + 三大界面）
+│   ├── components/ui/  # shadcn 组件（button/input/switch/select/tabs/card/alert…）
+│   ├── panel/          # 悬浮面板：Shadow DOM 内渲染，CSS 以 ?inline 注入
+│   ├── options/        # 设置页（Tabs：麦克风/LLM/识别/交互）
+│   ├── popup/          # 工具栏弹窗
+│   └── settings-bridge.js  # React ↔ 原生 settings 层的桥
+├── content/            # 语音引擎、适配器、焦点高亮（原生 JS，不变）
+├── offscreen/          # 扩展安全上下文的录音/识别（原生 JS，不变）
+└── background/         # LLM 双协议代理、offscreen 生命周期（原生 JS，不变）
+```
+
+**命令**：
+
+```bash
+npm run dev      # 两个构建配置同时 watch
+npm run build    # 构建并组装 dist/app（可直接加载的扩展目录）
+```
+
+**架构约束**：UI 层通过 `createOverlay()` 的命令式接口（setState/setTranscript/setMicOn…）与引擎通信，引擎不依赖 React；`settings-bridge.js` 是 React 访问 chrome.storage 的唯一入口。改 UI 不用动引擎，反之亦然。
 
 ## 配置 LLM（可选）
 
