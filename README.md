@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="icons/icon256.png" width="96" alt="语音问卷助手">
+</p>
+
 # 语音问卷助手 Speak-to-Questionnaire
 
 开源的问卷**语音作答**浏览器插件：朗读题目、开口作答、说"下一题"流转。

@@ -71,5 +71,6 @@ writeFileSync(join(dist, 'app/popup.html'), `<!DOCTYPE html>
 // 6. 附加资源
 copyFileSync(join(root, 'README.md'), join(dist, 'app/README.md'));
 copyFileSync(join(root, 'LICENSE'), join(dist, 'app/LICENSE'));
+cpSync(join(root, 'icons'), join(dist, 'app/icons'), { recursive: true });
 
 console.log('✓ dist/app 组装完成：加载 dist/app 即为可运行扩展');

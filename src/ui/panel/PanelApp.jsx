@@ -24,6 +24,7 @@ export default function PanelApp({ handlers, state }) {
   const panelRef = useRef(null);
   const dragRef = useRef(null);
 
+  const [visible, setVisible] = useState(true);
   const tone = state.statusTone || 'idle';
   const color = TONE_COLOR[tone] || TONE_COLOR.idle;
   const recording = !!state.micOn;
@@ -45,6 +46,7 @@ export default function PanelApp({ handlers, state }) {
 
   function onHeadPointerDown(e) {
     if (e.button !== 0) return;
+    if (e.target.closest('button')) return; // 按钮点击不走拖动（capture 会吞掉 click）
     const el = panelRef.current;
     const rect = el.getBoundingClientRect();
     dragRef.current = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
@@ -71,11 +73,23 @@ export default function PanelApp({ handlers, state }) {
     return () => window.removeEventListener('resize', onResize);
   }, []);
 
+  if (!visible) {
+    return (
+      <button
+        title="打开语音问卷助手"
+        onClick={() => setVisible(true)}
+        className="fixed bottom-[18px] right-[18px] z-10 flex h-11 w-11 items-center justify-center rounded-full bg-primary text-white shadow-lg hover:bg-primary/90"
+      >
+        <Mic className="h-5 w-5" />
+      </button>
+    );
+  }
+
   return (
     <div
       ref={panelRef}
       style={{ right: 18, bottom: 18 }}
-      className="fixed w-[300px] overflow-hidden rounded-2xl border border-border bg-card text-foreground shadow-2xl"
+      className="fixed z-10 w-[300px] overflow-hidden rounded-2xl border border-border bg-card text-foreground shadow-2xl"
     >
       {/* 标题栏（可拖动） */}
       <div
@@ -95,8 +109,8 @@ export default function PanelApp({ handlers, state }) {
         <span className="flex-1 text-sm font-bold">语音问卷助手</span>
         <button
           className="rounded px-1.5 text-muted-foreground transition-colors hover:text-foreground"
-          title="收起面板"
-          onClick={() => { panelRef.current.style.display = 'none'; }}
+          title="收起为小气泡（可随时点开）"
+          onClick={() => setVisible(false)}
         >×</button>
       </div>
 

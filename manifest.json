@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "语音问卷助手 Speak-to-Questionnaire",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "开源问卷语音作答助手：朗读题目、开口作答、说\"下一题\"流转。自带 BYOK（OpenAI 协议）LLM 增强，当前适配问卷星。",
   "permissions": [
     "storage",
@@ -19,7 +19,13 @@
   "options_page": "options.html",
   "action": {
     "default_popup": "popup.html",
-    "default_title": "语音问卷助手"
+    "default_title": "语音问卷助手",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   },
   "content_scripts": [
     {
@@ -63,5 +69,11 @@
         "<all_urls>"
       ]
     }
-  ]
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
 }

@@ -275,7 +275,15 @@ export default function OptionsApp() {
                   </Select>
                 </Field>
               )}
-              {settings.asr.mode !== 'webspeech' && (
+              {settings.asr.mode === 'llm-multimodal' && (
+                <Alert className="border-primary/30 bg-primary/5">
+                  <AlertDescription>
+                    此模式复用上方 LLM 标签页的配置（需 OpenAI 兼容协议），无需单独填写转写服务。
+                    录音按 5 秒分块、统一转码 WAV 后直连你的 LLM 服务转写。
+                  </AlertDescription>
+                </Alert>
+              )}
+              {(settings.asr.mode === 'api' || settings.asr.mode === 'auto') && (
                 <>
                   <Separator />
                   <Field label="转写 Base URL" hint="如 https://api.openai.com/v1">
