@@ -7,6 +7,7 @@
 
   global.STQ_DEFAULTS = {
     enabled: true,
+    ui: { lang: 'auto' },   // auto | zh | en（界面语言；语音指令词仍为中文）
     llm: {
       protocol: 'openai',   // openai | anthropic
       authStyle: 'auto',    // auto | bearer | api-key | x-api-key

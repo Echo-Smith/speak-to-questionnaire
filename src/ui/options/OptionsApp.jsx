@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Mic, KeyRound, Speech, Volume2, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { Mic, KeyRound, Speech, Volume2, Loader2, CheckCircle2, XCircle, Languages } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card.jsx';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs.jsx';
 import { Button } from '@/components/ui/button.jsx';
@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select.jsx';
 
 const stq = globalThis.stqSettingsBridge;
+const t = (...a) => globalThis.STQ_I18N.t(...a);
 
 function Field({ label, hint, children }) {
   return (
@@ -46,13 +47,16 @@ export default function OptionsApp() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    stq.load().then(setSettings);
+    stq.load().then((s) => {
+      globalThis.STQ_I18N_APPLY(s.ui && s.ui.lang);
+      setSettings(s);
+    });
   }, []);
 
   if (!settings) {
     return (
       <div className="flex min-h-screen items-center justify-center gap-2 text-muted-foreground">
-        <Loader2 className="h-4 w-4 animate-spin" /> 加载设置中…
+        <Loader2 className="h-4 w-4 animate-spin" /> {t('ui.micRequesting')}
       </div>
     );
   }
@@ -64,57 +68,56 @@ export default function OptionsApp() {
   });
 
   async function grantMic() {
-    setMicState({ text: '请求授权中…', ok: null });
+    setMicState({ text: t('ui.micRequesting'), ok: null });
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach((t) => t.stop());
-      setMicState({ text: '已授权 ✓ 浏览器已记住，无需重复操作', ok: true });
+      stream.getTracks().forEach((track) => track.stop());
+      setMicState({ text: t('ui.micOk'), ok: true });
     } catch (e) {
-      setMicState({ text: '授权失败：' + e.message, ok: false });
+      setMicState({ text: e.message, ok: false });
     }
   }
 
   async function testLlm() {
-    setTestState({ text: '测试中…', ok: null });
+    setTestState({ text: '…', ok: null });
     const check = stq.validateBaseUrl(settings.llm.baseUrl, { allowPrivate: settings.llm.allowPrivateHosts });
-    if (!check.ok) return setTestState({ text: 'Base URL 无效：' + check.error, ok: false });
-    if (!settings.llm.apiKey.trim()) return setTestState({ text: '必填项缺失：API Key', ok: false });
-    if (!settings.llm.model.trim()) return setTestState({ text: '必填项缺失：模型名', ok: false });
+    if (!check.ok) return setTestState({ text: 'Base URL: ' + check.error, ok: false });
+    if (!settings.llm.apiKey.trim()) return setTestState({ text: t('ui.needKey'), ok: false });
+    if (!settings.llm.model.trim()) return setTestState({ text: t('ui.needModel'), ok: false });
     const p = await stq.requestOriginPermission(check.url, settings.llm.allowPrivateHosts);
     if (!p.ok) return setTestState({ text: p.error, ok: false });
     const resp = await chrome.runtime.sendMessage({
       type: 'stq-llm-chat',
       payload: {
-        messages: [{ role: 'user', content: '回复"ok"两个字' }],
+        messages: [{ role: 'user', content: 'reply with "ok"' }],
         temperature: 0,
         override: { ...settings.llm, baseUrl: check.url },
       },
     });
-    if (resp && resp.ok) setTestState({ text: '连接成功 ✓', ok: true });
-    else setTestState({ text: (resp && resp.error) || '失败', ok: false });
+    if (resp && resp.ok) setTestState({ text: t('ui.testOk'), ok: true });
+    else setTestState({ text: (resp && resp.error) || 'failed', ok: false });
   }
 
   async function save() {
     setSaving(true);
     setSaveState({ text: '', ok: null });
     try {
-      // 必填校验：LLM 三项全空放行（整组可选），填一半报缺失项
       const llmFilled = [settings.llm.baseUrl, settings.llm.apiKey, settings.llm.model].filter((x) => x.trim());
       if (llmFilled.length > 0) {
-        if (!settings.llm.baseUrl.trim()) throw new Error('必填项缺失：Base URL');
-        if (!settings.llm.apiKey.trim()) throw new Error('必填项缺失：API Key');
-        if (!settings.llm.model.trim()) throw new Error('必填项缺失：模型名');
+        if (!settings.llm.baseUrl.trim()) throw new Error(t('ui.needBaseUrl'));
+        if (!settings.llm.apiKey.trim()) throw new Error(t('ui.needKey'));
+        if (!settings.llm.model.trim()) throw new Error(t('ui.needModel'));
       }
       const llmCheck = stq.validateBaseUrl(settings.llm.baseUrl, { allowPrivate: settings.llm.allowPrivateHosts });
-      if (!llmCheck.ok) throw new Error('LLM Base URL 无效：' + llmCheck.error);
+      if (!llmCheck.ok) throw new Error('Base URL: ' + llmCheck.error);
 
       const next = structuredClone(settings);
       next.llm.baseUrl = llmCheck.url;
 
       if (next.asr.mode === 'api' || (next.asr.mode === 'auto' && next.asr.baseUrl.trim())) {
         const asrCheck = stq.validateBaseUrl(next.asr.baseUrl, { allowPrivate: next.asr.allowPrivateHosts });
-        if (!asrCheck.ok) throw new Error('ASR Base URL 无效：' + asrCheck.error);
-        if (!next.asr.apiKey.trim()) throw new Error('ASR 服务缺少 API Key');
+        if (!asrCheck.ok) throw new Error('ASR Base URL: ' + asrCheck.error);
+        if (!next.asr.apiKey.trim()) throw new Error(t('ui.needAsrKey'));
         next.asr.baseUrl = asrCheck.url;
         const p = await stq.requestOriginPermission(next.asr.baseUrl, next.asr.allowPrivateHosts);
         if (!p.ok) throw new Error(p.error);
@@ -126,7 +129,7 @@ export default function OptionsApp() {
 
       await stq.save(next);
       setSettings(next);
-      setSaveState({ text: '已保存 ✓', ok: true });
+      setSaveState({ text: t('ui.saved'), ok: true });
     } catch (e) {
       setSaveState({ text: e.message, ok: false });
     } finally {
@@ -134,13 +137,18 @@ export default function OptionsApp() {
     }
   }
 
+  function switchLang(v) {
+    set((s) => { s.ui.lang = v; });
+    globalThis.STQ_I18N_APPLY(v);
+  }
+
   const banner = saveState.text || testState.text || micState.text;
   const bannerOk = saveState.text ? saveState.ok : testState.text ? testState.ok : micState.ok;
 
   return (
     <div className="mx-auto max-w-2xl p-8">
-      <h1 className="text-xl font-bold tracking-tight">语音问卷助手 · 设置</h1>
-      <p className="mt-1 text-sm text-muted-foreground">BYOK：所有模型服务由你自己提供，插件不经手任何 Key</p>
+      <h1 className="text-xl font-bold tracking-tight">{t('ui.optTitle')}</h1>
+      <p className="mt-1 text-sm text-muted-foreground">{t('ui.optSubtitle')}</p>
 
       {banner && (
         <Alert variant={bannerOk === false ? 'destructive' : bannerOk ? 'success' : 'default'} className="mt-4">
@@ -150,24 +158,22 @@ export default function OptionsApp() {
       )}
 
       <Tabs defaultValue="llm" className="mt-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="mic"><Mic className="h-4 w-4" /><span className="ml-1 hidden sm:inline">麦克风</span></TabsTrigger>
-          <TabsTrigger value="llm"><KeyRound className="h-4 w-4" /><span className="ml-1 hidden sm:inline">LLM</span></TabsTrigger>
-          <TabsTrigger value="asr"><Speech className="h-4 w-4" /><span className="ml-1 hidden sm:inline">识别</span></TabsTrigger>
-          <TabsTrigger value="voice"><Volume2 className="h-4 w-4" /><span className="ml-1 hidden sm:inline">交互</span></TabsTrigger>
+        <TabsList className="grid w-full grid-cols-5">
+          <TabsTrigger value="mic"><Mic className="h-4 w-4" /><span className="ml-1 hidden sm:inline">{t('ui.tabMic')}</span></TabsTrigger>
+          <TabsTrigger value="llm"><KeyRound className="h-4 w-4" /><span className="ml-1 hidden sm:inline">{t('ui.tabLlm')}</span></TabsTrigger>
+          <TabsTrigger value="asr"><Speech className="h-4 w-4" /><span className="ml-1 hidden sm:inline">{t('ui.tabAsr')}</span></TabsTrigger>
+          <TabsTrigger value="voice"><Volume2 className="h-4 w-4" /><span className="ml-1 hidden sm:inline">{t('ui.tabVoice')}</span></TabsTrigger>
+          <TabsTrigger value="lang"><Languages className="h-4 w-4" /></TabsTrigger>
         </TabsList>
 
         <TabsContent value="mic">
           <Card>
             <CardHeader>
-              <CardTitle>麦克风授权</CardTitle>
-              <CardDescription>
-                授予<b>插件自身</b>的麦克风权限（http 页面识别与自定义转写用），与问卷网站无关，一次永久生效。
-                必须在本页点击——popup 小窗会被授权框抢焦点关闭。
-              </CardDescription>
+              <CardTitle>{t('ui.micTitle')}</CardTitle>
+              <CardDescription>{t('ui.micDesc')}</CardDescription>
             </CardHeader>
-            <CardContent className="flex items-center gap-3">
-              <Button onClick={grantMic}><Mic className="h-4 w-4" /> 授权麦克风</Button>
+            <CardContent>
+              <Button onClick={grantMic}><Mic className="h-4 w-4" /> {t('ui.micBtn')}</Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -175,70 +181,44 @@ export default function OptionsApp() {
         <TabsContent value="llm">
           <Card>
             <CardHeader>
-              <CardTitle>LLM（BYOK，可选增强）</CardTitle>
-              <CardDescription>
-                任意 OpenAI 兼容或 Anthropic 兼容服务（OpenAI / DeepSeek / Moonshot / Ollama / Dots…）。
-                不填则使用内置规则匹配，基础功能不受影响。
-              </CardDescription>
+              <CardTitle>{t('ui.llmTitle')}</CardTitle>
+              <CardDescription>{t('ui.llmDesc')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
-                <Field label="接口协议">
+                <Field label={t('ui.protocol')}>
                   <Select value={settings.llm.protocol} onValueChange={(v) => set((s) => { s.llm.protocol = v; })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="openai">OpenAI 兼容（/v1/chat/completions）</SelectItem>
-                      <SelectItem value="anthropic">Anthropic 兼容（/v1/messages）</SelectItem>
+                      <SelectItem value="openai">{t('ui.protocolOpenai')}</SelectItem>
+                      <SelectItem value="anthropic">{t('ui.protocolAnthropic')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </Field>
-                <Field label="鉴权方式">
+                <Field label={t('ui.authStyle')}>
                   <Select value={settings.llm.authStyle} onValueChange={(v) => set((s) => { s.llm.authStyle = v; })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="auto">自动（按协议默认）</SelectItem>
-                      <SelectItem value="bearer">Authorization: Bearer</SelectItem>
-                      <SelectItem value="api-key">api-key 头</SelectItem>
-                      <SelectItem value="x-api-key">x-api-key 头</SelectItem>
+                      <SelectItem value="auto">{t('ui.authAuto')}</SelectItem>
+                      <SelectItem value="bearer">{t('ui.authBearer')}</SelectItem>
+                      <SelectItem value="api-key">{t('ui.authApiKey')}</SelectItem>
+                      <SelectItem value="x-api-key">{t('ui.authXApiKey')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </Field>
               </div>
-              <Field label="Base URL" hint="填 /v1 结尾或域名根均可">
-                <Input
-                  value={settings.llm.baseUrl}
-                  onChange={(e) => set((s) => { s.llm.baseUrl = e.target.value; })}
-                  placeholder="https://api.openai.com/v1"
-                />
+              <Field label={t('ui.baseUrl')} hint={t('ui.baseUrlHint')}>
+                <Input value={settings.llm.baseUrl} onChange={(e) => set((s) => { s.llm.baseUrl = e.target.value; })} placeholder="https://api.openai.com/v1" />
               </Field>
-              <Field label="API Key">
-                <Input
-                  type="password" autoComplete="off"
-                  value={settings.llm.apiKey}
-                  onChange={(e) => set((s) => { s.llm.apiKey = e.target.value; })}
-                  placeholder="sk-..."
-                />
+              <Field label={t('ui.apiKey')}>
+                <Input type="password" autoComplete="off" value={settings.llm.apiKey} onChange={(e) => set((s) => { s.llm.apiKey = e.target.value; })} placeholder="sk-..." />
               </Field>
-              <Field label="模型名" hint="如 gpt-4o-mini / deepseek-chat / claude-sonnet-4-5">
-                <Input
-                  value={settings.llm.model}
-                  onChange={(e) => set((s) => { s.llm.model = e.target.value; })}
-                  placeholder="gpt-4o-mini"
-                />
+              <Field label={t('ui.model')}>
+                <Input value={settings.llm.model} onChange={(e) => set((s) => { s.llm.model = e.target.value; })} placeholder="gpt-4o-mini" />
               </Field>
-              <ToggleRow
-                title="关闭思考模式"
-                hint="推理模型（如 Dots dots3）不关会耗尽 token 导致正文为空；不支持的网关自动忽略"
-                checked={settings.llm.disableThinking !== false}
-                onChange={(v) => set((s) => { s.llm.disableThinking = v; })}
-              />
-              <ToggleRow
-                title="允许本地/内网地址"
-                hint="自建模型如 Ollama http://localhost:11434；默认关闭"
-                checked={!!settings.llm.allowPrivateHosts}
-                onChange={(v) => set((s) => { s.llm.allowPrivateHosts = v; })}
-              />
-              <Button variant="outline" onClick={testLlm}>测试连通性</Button>
+              <ToggleRow title={t('ui.disableThinking')} hint={t('ui.disableThinkingHint')} checked={settings.llm.disableThinking !== false} onChange={(v) => set((s) => { s.llm.disableThinking = v; })} />
+              <ToggleRow title={t('ui.allowPrivate')} hint={t('ui.allowPrivateHint')} checked={!!settings.llm.allowPrivateHosts} onChange={(v) => set((s) => { s.llm.allowPrivateHosts = v; })} />
+              <Button variant="outline" onClick={testLlm}>{t('ui.test')}</Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -246,74 +226,50 @@ export default function OptionsApp() {
         <TabsContent value="asr">
           <Card>
             <CardHeader>
-              <CardTitle>语音识别（ASR）</CardTitle>
-              <CardDescription>
-                自动模式按页面环境选择：https 优先浏览器内置，http 走扩展自有链，失败逐级降级。
-                录音统一转码为 WAV 后直连你配置的服务。
-              </CardDescription>
+              <CardTitle>{t('ui.asrTitle')}</CardTitle>
+              <CardDescription>{t('ui.asrDesc')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <Field label="识别引擎">
+              <Field label={t('ui.asrEngine')}>
                 <Select value={settings.asr.mode} onValueChange={(v) => set((s) => { s.asr.mode = v; })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="auto">自动（按页面环境选择，推荐）</SelectItem>
-                    <SelectItem value="webspeech">浏览器内置（Web Speech，零配置）</SelectItem>
-                    <SelectItem value="api">自备转写服务（OpenAI 兼容 /v1/audio/transcriptions）</SelectItem>
-                    <SelectItem value="llm-multimodal">LLM 多模态直转写（复用 LLM 配置）</SelectItem>
+                    <SelectItem value="auto">{t('ui.asrAuto')}</SelectItem>
+                    <SelectItem value="webspeech">{t('ui.asrWebspeech')}</SelectItem>
+                    <SelectItem value="api">{t('ui.asrApi')}</SelectItem>
+                    <SelectItem value="llm-multimodal">{t('ui.asrMultimodal')}</SelectItem>
                   </SelectContent>
                 </Select>
               </Field>
               {settings.asr.mode === 'auto' && (
-                <Field label="自动优先级">
+                <Field label={t('ui.asrPrefer')}>
                   <Select value={settings.asr.prefer} onValueChange={(v) => set((s) => { s.asr.prefer = v; })}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="browser-first">浏览器优先（https 用内置，http 用自有服务）</SelectItem>
-                      <SelectItem value="service-first">自有服务优先（配置了转写服务时）</SelectItem>
+                      <SelectItem value="browser-first">{t('ui.preferBrowser')}</SelectItem>
+                      <SelectItem value="service-first">{t('ui.preferService')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </Field>
               )}
               {settings.asr.mode === 'llm-multimodal' && (
                 <Alert className="border-primary/30 bg-primary/5">
-                  <AlertDescription>
-                    此模式复用上方 LLM 标签页的配置（需 OpenAI 兼容协议），无需单独填写转写服务。
-                    录音按 5 秒分块、统一转码 WAV 后直连你的 LLM 服务转写。
-                  </AlertDescription>
+                  <AlertDescription>{t('ui.asrMultimodalNote')}</AlertDescription>
                 </Alert>
               )}
-              {(settings.asr.mode === 'api' || settings.asr.mode === 'auto') && (
+              {settings.asr.mode !== 'llm-multimodal' && settings.asr.mode !== 'webspeech' && (
                 <>
                   <Separator />
-                  <Field label="转写 Base URL" hint="如 https://api.openai.com/v1">
-                    <Input
-                      value={settings.asr.baseUrl}
-                      onChange={(e) => set((s) => { s.asr.baseUrl = e.target.value; })}
-                      placeholder="https://api.openai.com/v1"
-                    />
+                  <Field label={t('ui.asrBaseUrl')}>
+                    <Input value={settings.asr.baseUrl} onChange={(e) => set((s) => { s.asr.baseUrl = e.target.value; })} placeholder="https://api.openai.com/v1" />
                   </Field>
-                  <Field label="转写 API Key">
-                    <Input
-                      type="password" autoComplete="off"
-                      value={settings.asr.apiKey}
-                      onChange={(e) => set((s) => { s.asr.apiKey = e.target.value; })}
-                      placeholder="sk-..."
-                    />
+                  <Field label={t('ui.asrKey')}>
+                    <Input type="password" autoComplete="off" value={settings.asr.apiKey} onChange={(e) => set((s) => { s.asr.apiKey = e.target.value; })} placeholder="sk-..." />
                   </Field>
-                  <Field label="转写模型名" hint="如 whisper-1">
-                    <Input
-                      value={settings.asr.model}
-                      onChange={(e) => set((s) => { s.asr.model = e.target.value; })}
-                      placeholder="whisper-1"
-                    />
+                  <Field label={t('ui.asrModel')} hint={t('ui.asrModelHint')}>
+                    <Input value={settings.asr.model} onChange={(e) => set((s) => { s.asr.model = e.target.value; })} placeholder="whisper-1" />
                   </Field>
-                  <ToggleRow
-                    title="转写服务允许本地/内网地址"
-                    hint="内网部署的转写服务；默认关闭"
-                    checked={!!settings.asr.allowPrivateHosts}
-                    onChange={(v) => set((s) => { s.asr.allowPrivateHosts = v; })}
-                  />
+                  <ToggleRow title={t('ui.asrPrivate')} checked={!!settings.asr.allowPrivateHosts} onChange={(v) => set((s) => { s.asr.allowPrivateHosts = v; })} />
                 </>
               )}
             </CardContent>
@@ -323,62 +279,38 @@ export default function OptionsApp() {
         <TabsContent value="voice">
           <Card>
             <CardHeader>
-              <CardTitle>语音交互</CardTitle>
-              <CardDescription>朗读与流转行为，随时可在问卷面板上临时切换</CardDescription>
+              <CardTitle>{t('ui.voiceTitle')}</CardTitle>
+              <CardDescription>{t('ui.voiceDesc')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <ToggleRow
-                title="朗读题目"
-                hint={"关闭则点麦克风后直接聆听作答；说「重复」仍可听题"}
-                checked={settings.voice.readQuestion !== false}
-                onChange={(v) => set((s) => { s.voice.readQuestion = v; })}
-              />
-              <ToggleRow
-                title="朗读题目时同时朗读选项"
-                checked={settings.voice.readOptions}
-                onChange={(v) => set((s) => { s.voice.readOptions = v; })}
-              />
-              <ToggleRow
-                title="单选/量表说完自动进入下一题"
-                checked={settings.voice.autoAdvanceSingle}
-                onChange={(v) => set((s) => { s.voice.autoAdvanceSingle = v; })}
-              />
-              <ToggleRow
-                title="多选说完自动进入下一题"
-                hint={"关闭则需说「完成」"}
-                checked={settings.voice.autoAdvanceMultiple}
-                onChange={(v) => set((s) => { s.voice.autoAdvanceMultiple = v; })}
-              />
-              <ToggleRow
-                title="在页面上高亮当前题目"
-                hint="读题琥珀色 / 作答绿色"
-                checked={settings.voice.highlight}
-                onChange={(v) => set((s) => { s.voice.highlight = v; })}
-              />
+              <ToggleRow title={t('ui.readQuestion')} hint={t('ui.readQuestionHint')} checked={settings.voice.readQuestion !== false} onChange={(v) => set((s) => { s.voice.readQuestion = v; })} />
+              <ToggleRow title={t('ui.readOptions')} checked={settings.voice.readOptions} onChange={(v) => set((s) => { s.voice.readOptions = v; })} />
+              <ToggleRow title={t('ui.autoSingle')} checked={settings.voice.autoAdvanceSingle} onChange={(v) => set((s) => { s.voice.autoAdvanceSingle = v; })} />
+              <ToggleRow title={t('ui.autoMulti')} hint={t('ui.autoMultiHint')} checked={settings.voice.autoAdvanceMultiple} onChange={(v) => set((s) => { s.voice.autoAdvanceMultiple = v; })} />
+              <ToggleRow title={t('ui.highlight')} hint={t('ui.highlightHint')} checked={settings.voice.highlight} onChange={(v) => set((s) => { s.voice.highlight = v; })} />
               <Separator />
-              <ToggleRow
-                title="论述题 AI 整理"
-                hint="说完后请求 LLM 整理成书面语（先预览、可编辑、可改用原文）"
-                checked={settings.essay.autoClean}
-                onChange={(v) => set((s) => { s.essay.autoClean = v; })}
-              />
-              <Field label="识别语言">
-                <Select value={settings.voice.lang} onValueChange={(v) => set((s) => { s.voice.lang = v; })}>
-                  <SelectTrigger className="w-64"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="zh-CN">中文（普通话）</SelectItem>
-                    <SelectItem value="zh-HK">中文（粤语）</SelectItem>
-                    <SelectItem value="en-US">English (US)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </Field>
-              <Field label="朗读语速" hint="0.5 – 2">
-                <Input
-                  type="number" step="0.1" min="0.5" max="2" className="w-28"
-                  value={settings.voice.rate}
-                  onChange={(e) => set((s) => { s.voice.rate = parseFloat(e.target.value) || 1; })}
-                />
-              </Field>
+              <ToggleRow title={t('ui.essayClean')} hint={t('ui.essayCleanHint')} checked={settings.essay.autoClean} onChange={(v) => set((s) => { s.essay.autoClean = v; })} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="lang">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2"><Languages className="h-4 w-4" /> {t('ui.uiLang')}</CardTitle>
+              <CardDescription>
+                auto → {globalThis.STQ_I18N.detect() === 'zh' ? 'zh-CN' : 'en'} · voice commands remain Chinese keywords (see README)
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Select value={settings.ui.lang || 'auto'} onValueChange={switchLang}>
+                <SelectTrigger className="w-64"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">{t('ui.langAuto')}</SelectItem>
+                  <SelectItem value="zh">{t('ui.langZh')}</SelectItem>
+                  <SelectItem value="en">{t('ui.langEn')}</SelectItem>
+                </SelectContent>
+              </Select>
             </CardContent>
           </Card>
         </TabsContent>
@@ -386,11 +318,9 @@ export default function OptionsApp() {
 
       <div className="sticky bottom-4 mt-6 flex items-center gap-3 rounded-xl border bg-background p-3 shadow-lg">
         <Button onClick={save} disabled={saving}>
-          {saving && <Loader2 className="h-4 w-4 animate-spin" />} 保存设置
+          {saving && <Loader2 className="h-4 w-4 animate-spin" />} {t('ui.save')}
         </Button>
-        <span className="text-xs text-muted-foreground">
-          保存时会为 LLM / 转写服务域名申请访问权限（浏览器弹窗）
-        </span>
+        <span className="text-xs text-muted-foreground">{t('ui.saveHint')}</span>
       </div>
     </div>
   );

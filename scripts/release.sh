@@ -28,8 +28,9 @@ npm ci --no-audit --no-fund >/dev/null 2>&1 || npm install --no-audit --no-fund 
 npm run build
 ZIP="speak-to-questionnaire-v$VERSION.zip"
 rm -f "$ZIP"
-(cd dist && zip -rq "../$ZIP" app -x '*.DS_Store')
-echo "✓ $ZIP 打包完成"
+# 注意：manifest.json 必须位于压缩包根目录（Edge/Chrome 商店校验要求）
+(cd dist/app && zip -rq "../../$ZIP" . -x '*.DS_Store')
+echo "✓ $ZIP 打包完成（manifest 位于根目录）"
 
 # 4. 提交版本号并打 tag
 git add package.json manifest.json

@@ -4,6 +4,8 @@ import { cn } from '@/lib/utils.js';
 import { Button } from '@/components/ui/button.jsx';
 import { Textarea } from '@/components/ui/textarea.jsx';
 
+const t = (...a) => globalThis.STQ.t(...a);
+
 const TONE_COLOR = {
   speaking: '#c98a2d',
   listening: '#166b5b',
@@ -13,7 +15,7 @@ const TONE_COLOR = {
   idle: '#b8b2a4',
 };
 
-const HINT = '指令：下一题 / 上一题 / 重复 / 跳过 · 多选后说"完成" · 论述说"结束作答"';
+const HINT = () => t('hint');
 
 const MARGIN = 4;
 
@@ -106,10 +108,10 @@ export default function PanelApp({ handlers, state }) {
           )}
           style={{ background: color }}
         />
-        <span className="flex-1 text-sm font-bold">语音问卷助手</span>
+        <span className="flex-1 text-sm font-bold">{t("panelTitle")}</span>
         <button
           className="rounded px-1.5 text-muted-foreground transition-colors hover:text-foreground"
-          title="收起为小气泡（可随时点开）"
+          title={t('collapse')}
           onClick={() => setVisible(false)}
         >×</button>
       </div>
@@ -119,7 +121,7 @@ export default function PanelApp({ handlers, state }) {
         <div
           className={cn('min-h-[38px] text-sm font-semibold', tone === 'error' && 'text-destructive', tone === 'ok' && 'text-primary')}
         >
-          {state.statusText || '点击麦克风开始'}
+          {state.statusText || t('clickMicToStart')}
         </div>
 
         {/* 当前题目（读题关闭时的文字提醒） */}
@@ -134,7 +136,7 @@ export default function PanelApp({ handlers, state }) {
         {essay && (
           <div className="mt-2">
             <div className="mb-1 text-[11px] leading-relaxed text-muted-foreground">
-              {essay.cleaned ? '已按口语整理（下方可编辑）。原文：' + essay.original : '听写内容（下方可编辑）：'}
+              {essay.cleaned ? t('essayEdited') + essay.original : t('essayRaw')}
             </div>
             <Textarea className="h-28 text-xs" defaultValue={essay.cleaned || essay.original} id="stq-essay-text" />
             <div className="mt-2 flex gap-2">
@@ -144,14 +146,14 @@ export default function PanelApp({ handlers, state }) {
                   const ta = panelRef.current.querySelector('#stq-essay-text');
                   handlers.onEssayConfirm && handlers.onEssayConfirm(ta ? ta.value : '');
                 }}
-              >确认写入</Button>
+              >{t('essayConfirm')}</Button>
               {essay.cleaned && (
                 <Button className="h-8 text-xs" variant="secondary" onClick={() => handlers.onEssayOriginal && handlers.onEssayOriginal()}>
-                  用原文
+                  {t('essayOriginal')}
                 </Button>
               )}
               <Button className="h-8 text-xs" variant="secondary" onClick={() => handlers.onEssayRetry && handlers.onEssayRetry()}>
-                重说
+                {t('essayRetry')}
               </Button>
             </div>
           </div>
@@ -160,7 +162,7 @@ export default function PanelApp({ handlers, state }) {
         {/* 底部操作区 */}
         <div className="mt-3 flex items-center gap-2 border-t pt-3">
           <button
-            title={recording ? '正在录音，点击停止' : '开始语音作答'}
+            title={recording ? t('micRecording') : t('micStart')}
             onClick={() => handlers.onMicToggle && handlers.onMicToggle()}
             className={cn(
               'flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-lg text-white shadow-md transition-colors',
@@ -170,7 +172,7 @@ export default function PanelApp({ handlers, state }) {
             {recording ? <Square className="h-4 w-4" /> : <Mic className="h-5 w-5" />}
           </button>
           <button
-            title={speakerOn ? '读题：开（点击关闭）' : '读题：关（仅文字提示，点击开启）'}
+            title={speakerOn ? t('readOnTitle') : t('readOffTitle')}
             onClick={() => handlers.onSpeakerToggle && handlers.onSpeakerToggle()}
             className={cn(
               'flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm transition-colors',
@@ -179,7 +181,7 @@ export default function PanelApp({ handlers, state }) {
           >
             {speakerOn ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
           </button>
-          <div className="flex-1 text-[11px] leading-snug text-muted-foreground">{HINT}</div>
+          <div className="flex-1 text-[11px] leading-snug text-muted-foreground">{HINT()}</div>
           <div className="flex shrink-0 flex-col gap-0.5">
             <button
               className="text-[11px] text-primary hover:underline"

@@ -31,16 +31,17 @@
       this.essayOriginal = '';
       this.essayCleaned = '';
       this.busy = false;
+      this.t = (...a) => globalThis.STQ.t(...a);
     }
 
     /* ---------------- 生命周期 ---------------- */
 
     async start() {
       if (this.state !== 'idle') return;
-      this.ui.setState('正在识别页面题目…', 'busy');
+      this.ui.setState(this.t('probing'), 'busy');
       this.questions = await this.survey.list();
       if (!this.questions.length) {
-        this.ui.setState('未识别到题目（SPA 页面可稍后点麦克风重试）', 'error');
+        this.ui.setState(this.t('noQuestions'), 'error');
         this.ui.setMicOn(false);
         return;
       }
@@ -57,7 +58,7 @@
       if (STQ.Focus) STQ.Focus.hide();
       this.ui.hideEssay();
       this.ui.setTranscript('');
-      this.ui.setState('已停止', 'idle');
+      this.ui.setState(this.t('stopped'), 'idle');
       this.ui.setMicOn(false);
     }
 
@@ -85,7 +86,7 @@
       this.asrWatch = setTimeout(() => {
         if (myEpoch !== this.epoch || this.state === 'idle' || this.asrCtl == null) return;
         if (Date.now() - this.lastAsrEventAt < 12000) return;
-        this.ui.setState('12 秒未收到语音数据：①设置页「授权麦克风」②设置页确认 ASR 方式与配置 ③Edge 需用转写服务或多模态直转写', 'error');
+        this.ui.setState(this.t('silent12s'), 'error');
       }, 12000);
       this.asrCtl = STQ.createASR(this.settings, {
         onPartial: (t) => { if (myEpoch === this.epoch) { this.lastAsrEventAt = Date.now(); this.ui.setTranscript(t); } },
@@ -138,7 +139,7 @@
       const q = this.currentQuestion();
       if (!q) return;
       STQ.scrollIntoViewCenter(q.el);
-      this.ui.setQuestion(`第${q.topic}题 ${q.title}`);
+      this.ui.setQuestion(`Q${q.topic} ${q.title}`);
 
       // 换题：作废旧 ASR 会话（残留音频/结果不再处理）
       this.epoch++;
@@ -165,9 +166,9 @@
       }
       this.state = 'speaking';
       if (STQ.Focus && this.settings.voice.highlight) {
-        STQ.Focus.focus(q.el, 'speaking', `读题中 · 第${q.topic}题`);
+        STQ.Focus.focus(q.el, 'speaking', this.t('readingBadge', q.topic));
       }
-      this.ui.setState(`第${q.topic}题（${this.idx + 1}/${this.questions.length}）· 正在朗读`, 'speaking');
+      this.ui.setState(this.t('reading', q.topic, this.idx + 1, this.questions.length), 'speaking');
       // 朗读期间 ASR 保持暂停，读完自动恢复；epoch 保证跳题后的过期回调不打断新题
       const myEpoch = this.epoch;
       STQ.TTS.speak(spoken, () => {
@@ -183,17 +184,17 @@
         this.dictation = '';
         this.lastSeg = '';
         if (STQ.Focus && this.settings.voice.highlight) {
-          STQ.Focus.focus(q.el, 'listening', '听写中 · 请说话');
+          STQ.Focus.focus(q.el, 'listening', this.t('dictateBadge'));
         }
-        this.ui.setState('听写中…说完请说"结束作答"', 'listening');
+        this.ui.setState(this.t('dictate'), 'listening');
       } else {
         this.state = 'listening';
         const filled = q.answerText();
         if (STQ.Focus && this.settings.voice.highlight) {
-          STQ.Focus.focus(q.el, 'listening', filled ? '请作答 · 补充或修改' : '请作答');
+          STQ.Focus.focus(q.el, 'listening', filled ? this.t('answerMoreBadge') : this.t('answerBadge'));
         }
         this.ui.setState(
-          filled ? `等待作答（已答：${filled}）` : '聆听中…',
+          filled ? this.t('answerMore', filled) : this.t('listening'),
           'listening'
         );
       }
@@ -221,8 +222,8 @@
           await this.answerMultiple(q, text);
           break;
         default:
-          if (STQ.Focus && this.settings.voice.highlight) STQ.Focus.focus(q.el, 'error', '暂不支持语音');
-          this.ui.setState('该题型暂不支持语音作答，请手动作答后说"下一题"', 'error');
+          if (STQ.Focus && this.settings.voice.highlight) STQ.Focus.focus(q.el, 'error', this.t('unsupported'));
+          this.ui.setState(this.t('unsupported'), 'error');
       }
     }
 
@@ -244,14 +245,14 @@
       if (i < 0) i = await this.llmResolve(q, text);
       if (i === -2) return; // LLM 已按指令处理
       if (i < 0) {
-        if (STQ.Focus && this.settings.voice.highlight) STQ.Focus.focus(q.el, 'error', '未匹配，请重说');
-        this.ui.setState('没匹配到选项，请再说一次（说"重复"可重听题目）', 'error');
+        if (STQ.Focus && this.settings.voice.highlight) STQ.Focus.focus(q.el, 'error', this.t('notMatchedSingle'));
+        this.ui.setState(this.t('notMatchedSingle'), 'error');
         return;
       }
       q.write([q.options[i].label]);
       const label = STQ.normText(q.options[i].label).replace(/^[A-Ja-j]、/, '');
-      this.ui.setState(`已选：${label}`, 'ok');
-      STQ.TTS.speak(`已选${label}`);
+      this.ui.setState(this.t('selected', label), 'ok');
+      STQ.TTS.speak(this.t('ttsSelected', label));
       if (this.settings.voice.autoAdvanceSingle) {
         await sleep(600);
         await this.goNext();
@@ -268,8 +269,8 @@
         if (i >= 0) select.push(i);
       }
       if (!select.length && !deselect.length) {
-        if (STQ.Focus && this.settings.voice.highlight) STQ.Focus.focus(q.el, 'error', '未匹配，请重说');
-        this.ui.setState('没匹配到选项，请再说一次（说"完成"可进入下一题）', 'error');
+        if (STQ.Focus && this.settings.voice.highlight) STQ.Focus.focus(q.el, 'error', this.t('notMatchedMulti'));
+        this.ui.setState(this.t('notMatchedMulti'), 'error');
         return;
       }
       const picked = new Set(
@@ -285,10 +286,10 @@
 
       const shown = [...picked].map((i) => STQ.normText(q.options[i].label).replace(/^[A-Ja-j]、/, '')).join('、');
       this.ui.setState(
-        shown ? `已选：${shown}。说"完成"进入下一题` : '未选择。请说出选项，或说"完成"进入下一题',
+        shown ? this.t('selected', shown) + this.t('sayDone') : this.t('multiHint'),
         'ok'
       );
-      STQ.TTS.speak(shown ? `已选${shown}。说完成进入下一题` : '未选择。说完成进入下一题');
+      STQ.TTS.speak(shown ? this.t('ttsSelected', shown) + this.t('sayDone') : this.t('multiHint'));
       if (this.settings.voice.autoAdvanceMultiple) {
         await sleep(600);
         await this.goNext();
@@ -304,7 +305,7 @@
       if (!seg) return;
       // ASR 对同一段语音常回传两次相同 final（restart 后尤其常见），去重
       if (seg === this.lastSeg) {
-        this.ui.setState(`听写中（${this.dictation.length}字）… 说"结束作答"完成`, 'listening');
+        this.ui.setState(this.t('dictating', this.dictation.length), 'listening');
         return;
       }
 
@@ -334,7 +335,7 @@
     async finishDictation() {
       const q = this.currentQuestion();
       if (!this.dictation.trim()) {
-        this.ui.setState('未听到内容，继续说或说"跳过"', 'error');
+        this.ui.setState(this.t('noSpeechYet'), 'error');
         this.state = 'dictate';
         return;
       }
@@ -342,12 +343,12 @@
 
       if (this.settings.essay.autoClean && STQ.LLM.available) {
         this.state = 'busy';
-        this.ui.setState('正在整理…', 'busy');
+        this.ui.setState(this.t('cleanThinking'), 'busy');
         try {
           this.essayCleaned = await STQ.LLM.cleanEssay(this.essayOriginal, q && q.title);
         } catch (e) {
           this.essayCleaned = '';
-          this.ui.setState('整理失败（' + e.message + '），可使用原文', 'error');
+          this.ui.setState(this.t('cleanFail', e.message), 'error');
         }
       } else {
         this.essayCleaned = '';
@@ -364,20 +365,20 @@
           this.dictation = '';
           this.lastSeg = '';
           this.ui.hideEssay();
-          this.ui.setState('听写中…说完请说"结束作答"', 'listening');
+          this.ui.setState(this.t('dictate'), 'listening');
         },
       });
       if (this.essayCleaned) {
-        STQ.TTS.speak('整理完成，请查看预览。确认请说"确认"，使用原文请说"原文"，重新说请说"重说"。');
+        STQ.TTS.speak(this.t('essayPrompt1'));
       } else {
-        STQ.TTS.speak('请查看听写内容。确认请说"确认"，重新说请说"重说"。');
+        STQ.TTS.speak(this.t('essayPrompt2'));
       }
     }
 
     handleEssayReview(text) {
       const cmd = STQ.Matcher.detectCommand(text);
       if (!cmd) {
-        this.ui.setState('请说"确认"写入，"原文"使用原始内容，"重说"重新作答', 'error');
+        this.ui.setState(this.t('sayConfirm'), 'error');
         return;
       }
       if (cmd.cmd === 'confirm') {
@@ -393,7 +394,7 @@
         this.state = 'dictate';
         this.dictation = '';
         this.lastSeg = '';
-        this.ui.setState('听写中…说完请说"结束作答"', 'listening');
+        this.ui.setState(this.t('dictate'), 'listening');
       }
     }
 
@@ -402,7 +403,7 @@
       this.ui.hideEssay();
       if (q) {
         q.write(finalText);
-        this.ui.setState(`已作答（${finalText.length}字）`, 'ok');
+        this.ui.setState(this.t('answered', finalText.length), 'ok');
       }
       await sleep(400);
       await this.goNext();
@@ -418,10 +419,10 @@
           this.idx += 1;
           this.presentQuestion();
         } else if (this.survey.hasNextPage()) {
-          this.ui.setState('正在翻页…', 'busy');
+          this.ui.setState(this.t('paging'), 'busy');
           const r = await this.survey.gotoNextPage();
           if (!r.ok) {
-            this.ui.setState(r.error || '翻页失败', 'error');
+            this.ui.setState(this.t('nextPageFail', r.error), 'error');
             STQ.TTS.speak(r.error || '翻页失败');
             this.state = 'listening';
             return;
@@ -439,7 +440,7 @@
       } finally {
         this.busy = false;
       }
-      if (skip) this.ui.setState('已跳过', 'ok');
+      this.ui.setState(this.t('skipped'), 'ok');
     }
 
     async goPrev() {
@@ -451,10 +452,10 @@
           this.idx -= 1;
           this.presentQuestion();
         } else if (this.survey.hasPrevPage()) {
-          this.ui.setState('正在返回上一页…', 'busy');
+          this.ui.setState(this.t('pagingBack'), 'busy');
           const r = await this.survey.gotoPrevPage();
           if (!r.ok) {
-            this.ui.setState(r.error || '返回失败', 'error');
+            this.ui.setState(this.t('nextPageFail', r.error), 'error');
             this.state = 'listening';
             return;
           }
@@ -462,8 +463,8 @@
           this.idx = Math.max(0, this.questions.length - 1);
           this.presentQuestion();
         } else {
-          this.ui.setState('已经是第一题了', 'error');
-          STQ.TTS.speak('已经是第一题了');
+          this.ui.setState(this.t('firstQuestion'), 'error');
+          this.ui.setState(this.t('firstQuestion'), 'error');
           this.state = 'listening';
         }
       } finally {
@@ -473,8 +474,8 @@
 
     enterFinished() {
       this.state = 'finished';
-      this.ui.setState('全部完成。说"提交"提交问卷，或说"上一题"修改', 'ok');
-      STQ.TTS.speak('所有题目已完成。确认无误请说"提交"，需要修改请说"上一题"。');
+      this.ui.setState(this.t('allDone'), 'ok');
+      STQ.TTS.speak(this.t('allDoneTts'));
     }
 
     async handleFinished(text) {
@@ -488,18 +489,18 @@
     }
 
     async trySubmit() {
-      this.ui.setState('正在提交…', 'busy');
+      this.ui.setState(this.t('submitting'), 'busy');
       STQ.TTS.cancel();
       this.survey.submit();
       this.stop();
-      this.ui.setState('已点击提交，请留意页面结果', 'ok');
+      this.ui.setState(this.t('submitted'), 'ok');
     }
 
     /* ---------------- LLM 兜底 ---------------- */
 
     async llmResolve(q, text) {
       if (!STQ.LLM.available) return -1;
-      this.ui.setState('正在理解…（LLM）', 'busy');
+      this.ui.setState(this.t('understand'), 'busy');
       try {
         const r = await STQ.LLM.resolveUtterance(q, text);
         if (r && r.action === 'answer') {
@@ -511,7 +512,7 @@
           return -2; // 已处理指令
         }
       } catch (e) {
-        this.ui.setState('LLM 调用失败：' + e.message, 'error');
+        this.ui.setState(this.t('llmFail', e.message), 'error');
       }
       return -1;
     }

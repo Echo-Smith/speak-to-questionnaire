@@ -5,6 +5,7 @@ const st=document.createElement('style');
 st.textContent=cssText;
 document.head.appendChild(st);
 import '../settings-bridge.js';
+import '../i18n.js';
 import PopupApp from './PopupApp.jsx';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
