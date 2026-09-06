@@ -21,7 +21,7 @@
     const chunks = [];
     let buf = '';
     for (const p of parts) {
-      if ((buf + p).length > 80 && buf) {
+      if ((buf + p).length > 200 && buf) {
         chunks.push(buf);
         buf = p;
       } else {
@@ -51,7 +51,7 @@
     const advance = () => {
       if (finished) return;
       finished = true;
-      clearTimeout(watch);
+      clearTimeout(activeWatch);
       playNext(onDone);
     };
     const est = Math.max(2500, (text.length / Math.max(1, rate)) * 260);
