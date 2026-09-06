@@ -18,9 +18,10 @@
 
   const CHUNK_MS = 5000;
   const MIN_CHUNK_BYTES = 2500;
-  const MIC_HINT = '请在插件弹窗中点击「授权麦克风」后重试';
+  const MIC_HINT = '请在插件设置页点「🎤 授权麦克风」后重试';
 
   let ctl = null;
+  let sessionSeq = 0; // 会话序号：start/stop 竞态时旧会话的异步回调全部失效
 
   chrome.runtime.onMessage.addListener((msg) => {
     if (!msg || msg.target !== 'offscreen') return;
@@ -50,8 +51,14 @@
 
   function start(settings) {
     if (ctl) stop();
+    const sid = ++sessionSeq;
     const callbacks = makeCallbacks();
     const mode = (settings.asr && settings.asr.mode) || 'webspeech';
+    if (mode !== 'webspeech') {
+      // 管线遥测：让面板能看到"已开麦 → 录音块 #N → 转写中"的推进
+      const orig = callbacks.onPartial;
+      callbacks.onPartial = (t) => orig(t);
+    }
 
     if (mode === 'api') {
       const check = stqValidateBaseUrl(settings.asr.baseUrl, { allowPrivate: !!settings.asr.allowPrivateHosts });
@@ -59,7 +66,7 @@
         send({ kind: 'error', error: 'ASR 转写服务未配置，已回退浏览器内置识别' });
         return startWebspeech(settings, callbacks);
       }
-      return startChunked(settings, callbacks, (blob, ext) => transcribeApi(blob, ext, settings, check.url));
+      return startChunked(settings, callbacks, (blob, ext) => transcribeApi(blob, ext, settings, check.url), sid);
     }
 
     if (mode === 'llm-multimodal') {
@@ -67,7 +74,7 @@
         send({ kind: 'error', error: 'LLM 多模态听写需要配置 OpenAI 协议的 LLM，已回退浏览器内置识别' });
         return startWebspeech(settings, callbacks);
       }
-      return startChunked(settings, callbacks, (blob) => transcribeViaLLM(blob, settings));
+      return startChunked(settings, callbacks, (blob) => transcribeViaLLM(blob, settings), sid);
     }
 
     return startWebspeech(settings, callbacks);
@@ -75,13 +82,13 @@
 
   function startWebspeech(settings, callbacks) {
     if (!globalThis.STQ || !STQ.ASR.isSupported) {
-      callbacks.onError(new Error('当前浏览器不支持 Web Speech，请配置"自备转写服务"'));
+      callbacks.onError(new Error('当前浏览器不支持 Web Speech（Edge 需配置转写服务或多模态直转写）'));
       return { stop() {} };
     }
     return STQ.ASR.start(settings.voice.lang, callbacks);
   }
 
-  function startChunked(settings, callbacks, transcribe) {
+  function startChunked(settings, callbacks, transcribe, sid) {
     (async () => {
       let stream;
       try {
@@ -106,27 +113,31 @@
         (m) => window.MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)
       );
       const recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
-      const ext = /mp4/.test(recorder.mimeType || '') ? 'm4a' : 'webm';
       let stopped = false;
+      let blockNo = 0;
 
       recorder.ondataavailable = async (event) => {
-        if (stopped || !event.data || event.data.size < MIN_CHUNK_BYTES) return;
-        if (callbacks.onPartial) callbacks.onPartial('（识别中…）');
+        if (stopped || sid !== sessionSeq || !event.data || event.data.size < MIN_CHUNK_BYTES) return;
+        blockNo += 1;
+        if (callbacks.onPartial) callbacks.onPartial(`（录音块 #${blockNo} · 转写中…）`);
         try {
           const { blob, ext: wavExt } = await toWavOrOriginal(event.data);
           const text = await transcribe(blob, wavExt);
-          if (!stopped && text && text.trim()) {
-            if (callbacks.onPartial) callbacks.onPartial('');
+          if (sid !== sessionSeq || stopped) return;
+          if (text && text.trim()) {
             callbacks.onFinal(text.trim());
+          } else if (callbacks.onPartial) {
+            callbacks.onPartial(`（录音块 #${blockNo} · 未检出语音）`);
           }
         } catch (e) {
-          if (!stopped) callbacks.onError(e);
+          if (sid === sessionSeq && !stopped) callbacks.onError(e);
         }
       };
 
       ctl = {
         stop() {
           stopped = true;
+          sessionSeq++; // 失效本会话所有在途回调
           try { recorder.stop(); } catch (_) { /* ignore */ }
           stream.getTracks().forEach((t) => t.stop());
         },

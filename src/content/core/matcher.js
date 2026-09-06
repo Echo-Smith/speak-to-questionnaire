@@ -12,7 +12,7 @@
     ['skip', ['跳过', '不答', '略过']],
     ['done', ['完成', '好了', '可以了', '答完了', '选完了']],
     ['submit', ['提交', '提交问卷', '交卷']],
-    ['confirm', ['确认', '确定', '是的', '对']],
+    ['confirm', ['确认', '确定']],
     ['cancel', ['取消', '不对', '错了', '重说']],
     ['stopread', ['停止朗读', '别读了', '停', '安静']],
   ];
@@ -87,6 +87,18 @@
       if (ord) {
         const n = cnToDigit(ord[1]);
         if (n >= 1 && n <= options.length) return n - 1;
+      }
+
+      // 2.5) 判断题同义：对/没错→"正确"项；不对/错→"错误"项（"对"已从指令表移出）
+      const TF = [
+        { words: ['正确', '对', '是的', '没错', '是', 'true'], marker: '正确' },
+        { words: ['错误', '不对', '错', 'false', '不正确'], marker: '错误' },
+      ];
+      for (const g of TF) {
+        if (g.words.includes(t)) {
+          const i = options.findIndex((o) => stripOptionPrefix(o.label).includes(g.marker));
+          if (i >= 0) return i;
+        }
       }
 
       // 3) 选项文本包含

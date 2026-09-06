@@ -81,12 +81,12 @@
       const myEpoch = this.epoch;
       this.lastAsrEventAt = Date.now();
       clearTimeout(this.asrWatch);
-      // 静默 watchdog：20 秒无任何识别事件（多为麦克风授权缺失/识别方式不通），给出可操作提示
+      // 静默 watchdog：12 秒无任何识别事件（多为麦克风授权缺失/识别方式不通），给出可操作提示
       this.asrWatch = setTimeout(() => {
         if (myEpoch !== this.epoch || this.state === 'idle' || this.asrCtl == null) return;
-        if (Date.now() - this.lastAsrEventAt < 20000) return;
-        this.ui.setState('20 秒未收到语音数据：请确认①设置页已「授权麦克风」②识别方式配置有效（面板左侧为当前引擎）', 'error');
-      }, 20000);
+        if (Date.now() - this.lastAsrEventAt < 12000) return;
+        this.ui.setState('12 秒未收到语音数据：①设置页「授权麦克风」②设置页确认 ASR 方式与配置 ③Edge 需用转写服务或多模态直转写', 'error');
+      }, 12000);
       this.asrCtl = STQ.createASR(this.settings, {
         onPartial: (t) => { if (myEpoch === this.epoch) { this.lastAsrEventAt = Date.now(); this.ui.setTranscript(t); } },
         onFinal: (t) => { if (myEpoch === this.epoch) { this.lastAsrEventAt = Date.now(); this.handleFinal(t); } },
