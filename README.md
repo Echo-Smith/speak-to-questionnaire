@@ -1,199 +1,206 @@
 <p align="center">
-  <img src="icons/icon256.png" width="96" alt="语音问卷助手">
+  <img src="icons/icon256.png" width="96" alt="Speak-to-Questionnaire">
 </p>
 
-<h1 align="center">语音问卷助手 Speak-to-Questionnaire</h1>
+<h1 align="center">Speak-to-Questionnaire 语音问卷助手</h1>
+
+<p align="center">
+  <a href="README.md">English</a> | <a href="README.zh-CN.md">中文</a>
+</p>
 
 <p align="center">
   <a href="https://github.com/Echo-Smith/speak-to-questionnaire/actions/workflows/ci.yml"><img src="https://github.com/Echo-Smith/speak-to-questionnaire/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
-  <a href="https://github.com/Echo-Smith/speak-to-questionnaire/releases/latest"><img src="https://img.shields.io/github/v/release/Echo-Smith/speak-to-questionnaire?label=%E6%9C%80%E6%96%B0%E7%89%88" alt="最新版"></a>
+  <a href="https://github.com/Echo-Smith/speak-to-questionnaire/releases/latest"><img src="https://img.shields.io/github/v/release/Echo-Smith/speak-to-questionnaire?label=latest" alt="Latest release"></a>
   <a href="https://github.com/Echo-Smith/speak-to-questionnaire/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Echo-Smith/speak-to-questionnaire" alt="MIT License"></a>
-  <img src="https://img.shields.io/badge/BYOK-%E8%87%AA%E5%A4%87Key-168b5b" alt="BYOK">
+  <img src="https://img.shields.io/badge/BYOK-bring%20your%20own%20key-168b5b" alt="BYOK">
   <img src="https://img.shields.io/badge/UI-React%20%2B%20shadcn%2Fui-168b5b" alt="React + shadcn/ui">
 </p>
 
-开源的问卷**语音作答**浏览器插件：朗读题目、开口作答、说"下一题"流转。
-为打字困难的人群（视障用户、老年人）和不想逐题点选的所有人设计。
+An open-source browser extension for **voice-driven survey answering**: it reads questions aloud, you speak your answers, and say "next question" to move on.
+Built for people who have difficulty typing (visually impaired users, the elderly) — and anyone who'd rather talk than click through a form.
 
-**核心特性**
+**Core features**
 
-- 🗣 **说话即作答**：念出选项（"B" / "第二个" / "城市"）即完成选择
-- ⏭ **说话即流转**：单选说完自动进入下一题；多选说完停留，说"完成"才走；说"上一题"随时回退；"重复"重听题目；"跳过"略过
-- 🎯 **当前题目高亮**：正在读/正在答的题自动框选——读题中琥珀色、作答中绿色脉动、异常橙色，读题与作答阶段一目了然（可在设置关闭）
-- 📖 **题目朗读**：TTS 读题 + 读选项，与作答联动（朗读中可说"停止朗读/别读了"打断进入作答）
-- ✍️ **论述题听写**：开口说，说"结束作答"完成；配置 LLM 后可一键整理成书面语（**先预览、可编辑、可改回原文，原始口述始终保留**）
-- 🔑 **BYOK**：LLM 完全由用户自备（任意 OpenAI 兼容接口：OpenAI / DeepSeek / Moonshot / Ollama…），插件本身不内置、不经手任何 Key
-- 🔒 **规则兜底**：不配置 LLM 也能用——指令识别和选项匹配全部本地完成
+- 🗣 **Speak to answer** — say an option ("B" / "the second one" / "City") and it's selected
+- ⏭ **Speak to navigate** — single-choice auto-advances; multi-choice stays until you say "done"; "previous question" anytime; "repeat" to hear a question again; "skip" to pass
+- 🎯 **Current-question highlight** — the active question is framed on the page: amber while reading, green pulsing while listening, orange on errors
+- 📖 **Question read-aloud** — TTS reads questions and options; interrupt by clicking the mic (or turn reading off with the 🔊 toggle)
+- ✍️ **Essay dictation** — speak freely, finish with "end of answer"; optionally have an LLM polish it into written prose (**preview first, editable, original speech always preserved**)
+- 🔑 **BYOK** — bring your own LLM (any OpenAI-compatible or Anthropic-compatible API: OpenAI / DeepSeek / Moonshot / Ollama…). The extension never ships or touches your keys
+- 🔒 **Works without an LLM** — command recognition and option matching run entirely locally
 
-当前适配平台：**问卷星**（wjx.cn / wjx.top / sojump.com）。
+Currently supported platform: **WJX/问卷星** (wjx.cn / wjx.top / sojump.com), plus Google Forms and generic form pages (see [Supported platforms](#supported-platforms)).
 
 ---
 
-## 安装
+## Installation
 
-### 方式一：下载现成安装包（推荐）
+### Option 1: download a ready-made build (recommended)
 
-1. 打开本仓库的 [Releases 页面](https://github.com/Echo-Smith/speak-to-questionnaire/releases)，下载最新版本的 `speak-to-questionnaire-vX.Y.Z.zip`
-2. 解压到一个**固定目录**（不要放在临时目录或下载后删除的目录，扩展会引用该目录）
-3. 打开 Chrome / Edge，地址栏输入 `chrome://extensions`（Edge 为 `edge://extensions`）
-4. 打开右上角 **「开发者模式」**
-5. 点击 **「加载已解压的扩展程序」**，选择解压后**包含 `manifest.json` 的那一层目录**
-6. 建议把扩展固定到工具栏（拼图图标 → 钉住「语音问卷助手」）
+1. Grab the latest `speak-to-questionnaire-vX.Y.Z.zip` from the [Releases page](https://github.com/Echo-Smith/speak-to-questionnaire/releases)
+2. Unzip it into a **fixed directory** (don't use a temp folder — the extension references that directory)
+3. Open `chrome://extensions` in Chrome/Edge (`edge://extensions` in Edge)
+4. Enable **Developer mode** (top-right toggle)
+5. Click **Load unpacked** and select the unzipped folder **containing `manifest.json`**
+6. Pin the extension to the toolbar (puzzle icon → pin "Speak-to-Questionnaire")
 
-> 未上架应用商店前均为开发者模式加载；Chrome 启动时可能提示"请停用开发者模式扩展"，选择保留即可。
+> Until it's published to the Chrome Web Store, this loads in developer mode. Chrome may ask to disable developer-mode extensions on startup — choose to keep it.
 
-### 首次使用三步
+### First run: 3 steps
 
-| 步骤 | 操作 | 说明 |
+| Step | Action | Notes |
 |---|---|---|
-| ① 授权麦克风 | 点插件图标 → 「麦克风授权 / 设置 →」→ 点 **「🎤 授权麦克风」** | 授予**插件自身**的麦克风权限（识别在扩展内完成，与问卷网站无关），一次永久生效。必须在设置页完成——popup 小窗会被授权框抢焦点关闭 |
-| ② 配置模型（可选） | 设置页填 Base URL / API Key / 模型名 → 点「测试连通性」→ **保存设置** | BYOK：任意 OpenAI 或 Anthropic 兼容服务。不配置也能用（本地规则匹配） |
-| ③ 开始作答 | 打开问卷页面 → 点右下角面板的 **🎙** | 已适配平台自动出现面板；其他问卷点 popup 的「在本页启用」 |
+| ① Grant microphone | Click the extension icon → "Microphone / Settings →" → click **🎤 Grant microphone** | Grants mic access to **the extension itself** (recognition happens inside the extension, unrelated to survey sites). One-time, remembered by the browser. Must be done on the settings page — the popup gets closed by the permission prompt |
+| ② Configure a model (optional) | Settings page: Base URL / API Key / model → "Test connection" → **Save** | BYOK: any OpenAI- or Anthropic-compatible service. Skippable — rule-based matching works locally without it |
+| ③ Start answering | Open a survey page → click **🎙** on the floating panel | Supported platforms show the panel automatically; for other surveys use "Enable on this page" in the popup |
 
-### 更新版本
+### Updating
 
-下载新版 zip 覆盖解压目录 → `chrome://extensions` 页面点击该扩展卡片上的 **「重新加载」** 按钮（🔄 图标）即可，设置会保留。
+Download the new zip, overwrite the unzipped directory, then click the **Reload** (🔄) button on the extension card in `chrome://extensions`. Settings are preserved.
 
-### 从源码安装（v0.6.0 起 UI 为 React + shadcn/ui，需先构建）
+### Install from source (since v0.6.0 the UI is React + shadcn/ui — build required)
 
 ```bash
 git clone https://github.com/Echo-Smith/speak-to-questionnaire.git
 cd speak-to-questionnaire
 npm install
 npm run build
-# 然后 chrome://extensions → 开发者模式 → 加载已解压的扩展程序 → 选择 dist/app 目录
+# then chrome://extensions → Developer mode → Load unpacked → select the dist/app directory
 ```
 
-> 不想装 Node？直接用 [Releases](https://github.com/Echo-Smith/speak-to-questionnaire/releases) 里已构建好的 zip（方式一）。
+> Don't want Node? Use the pre-built zip from [Releases](https://github.com/Echo-Smith/speak-to-questionnaire/releases) (option 1).
 
-## 开发
+## Development
 
-**技术栈**：UI 层 React 18 + shadcn/ui（Tailwind CSS + Radix primitives），构建用 Vite；语音引擎与平台适配器保持原生 JS（零依赖、可直接审计）。
+**Stack**: the UI layer is React 18 + shadcn/ui (Tailwind CSS + Radix primitives) built with Vite; the voice engine and platform adapters stay in dependency-free vanilla JS (directly auditable).
 
 ```
 src/
-├── ui/                 # React UI（shadcn/ui 组件 + 三大界面）
-│   ├── components/ui/  # shadcn 组件（button/input/switch/select/tabs/card/alert…）
-│   ├── panel/          # 悬浮面板：Shadow DOM 内渲染，CSS 以 ?inline 注入
-│   ├── options/        # 设置页（Tabs：麦克风/LLM/识别/交互）
-│   ├── popup/          # 工具栏弹窗
-│   └── settings-bridge.js  # React ↔ 原生 settings 层的桥
-├── content/            # 语音引擎、适配器、焦点高亮（原生 JS，不变）
-├── offscreen/          # 扩展安全上下文的录音/识别（原生 JS，不变）
-└── background/         # LLM 双协议代理、offscreen 生命周期（原生 JS，不变）
+├── ui/                 # React UI (shadcn/ui components + three surfaces)
+│   ├── components/ui/  # shadcn components (button/input/switch/select/tabs/card/alert…)
+│   ├── panel/          # floating panel: rendered inside Shadow DOM, CSS injected via ?inline
+│   ├── options/        # settings page (tabs: microphone/LLM/ASR/interaction)
+│   ├── popup/          # toolbar popup
+│   └── settings-bridge.js  # bridge between React and the vanilla settings layer
+├── content/            # voice engine, adapters, focus highlight (vanilla JS)
+├── offscreen/          # recording/recognition in the extension's secure context (vanilla JS)
+└── background/         # dual-protocol LLM proxy, offscreen lifecycle (vanilla JS)
 ```
 
-**命令**：
+**Commands**:
 
 ```bash
-npm run dev      # 两个构建配置同时 watch
-npm run build    # 构建并组装 dist/app（可直接加载的扩展目录）
-./scripts/release.sh 0.7.0   # 版本发布（校验→构建→打包→tag→Release）
+npm run dev      # watch both build configs
+npm run build    # build and assemble dist/app (a loadable extension directory)
+./scripts/release.sh 0.7.0   # release: validate → build → zip → tag → Release
 ```
 
-版本历史见 [CHANGELOG.md](CHANGELOG.md)。
+See [CHANGELOG.md](CHANGELOG.md) for version history.
 
-**架构约束**：UI 层通过 `createOverlay()` 的命令式接口（setState/setTranscript/setMicOn…）与引擎通信，引擎不依赖 React；`settings-bridge.js` 是 React 访问 chrome.storage 的唯一入口。改 UI 不用动引擎，反之亦然。
+**Architecture constraint**: the UI talks to the engine through the imperative `createOverlay()` interface (`setState/setTranscript/setMicOn…`); the engine never imports React, and `settings-bridge.js` is the only way React touches `chrome.storage`. Change the UI without touching the engine, and vice versa.
 
-## 配置 LLM（可选）
+## Configuring the LLM (optional)
 
-插件图标 → 设置页：
+Extension icon → Settings:
 
-- **接口协议**：`OpenAI 兼容`（/v1/chat/completions）或 `Anthropic 兼容`（/v1/messages），可对接 Dots 等聚合平台与 Claude 系模型
-- **鉴权方式**：自动 / `Authorization: Bearer` / `api-key` 头 / `x-api-key` 头（Dots 平台用 `api-key`，Anthropic 官方用 `x-api-key`，"自动"会同时带上两种头以兼容）
-- **Base URL**：填到 `/v1` 或域名根均可（自动补全）
-- **API Key**：你的 Key（仅存本地 `chrome.storage.local`，不经过任何第三方服务器）
-- **模型名**：如 `deepseek-chat` / `claude-sonnet-4-5` / `dots3-note-prev`
+- **Protocol**: `OpenAI-compatible` (/v1/chat/completions) or `Anthropic-compatible` (/v1/messages) — works with aggregators like Dots and Claude-family models
+- **Auth style**: auto / `Authorization: Bearer` / `api-key` header / `x-api-key` header (auto sends both headers for compatibility)
+- **Base URL**: `/v1`-suffixed or bare domain root both work (auto-completed)
+- **API Key**: stored only in local `chrome.storage.local`, never sent to any third party
+- **Model**: e.g. `gpt-4o-mini` / `deepseek-chat` / `claude-sonnet-4-5`
 
-点「测试连通性」验证。LLM 用于：模糊口述的选项归一（"我觉得还是城里吧" → 选"城市"）、论述题书面整理。请求由插件后台直连你填的服务，与本项目作者无关。
+Click "Test connection" to verify. The LLM is used for fuzzy utterance→option mapping ("I'd say the city one" → selects "City") and essay polishing. Requests go directly from the extension to the service you configured; the authors are not involved.
 
-## 语音识别（ASR）：自动选择 + 优先级
+## Speech recognition (ASR): auto selection with priority
 
-默认 `auto` 模式按页面环境自动构建引擎链，失败自动逐级降级：
+The default `auto` mode builds an engine chain based on the page environment and degrades automatically:
 
-| 页面环境 | 引擎链（browser-first 默认） |
+| Page | Engine chain (browser-first by default) |
 |---|---|
-| **https** | 浏览器内置识别（页面内，零配置低延迟）→ 自备转写服务 → LLM 多模态 → 扩展内置识别 |
-| **http** | 自备转写服务 → LLM 多模态 → **扩展内置识别**（http 页面不允许页面访问麦克风，识别在扩展的 offscreen 安全上下文完成，故 http 问卷同样可用） |
+| **https** | Built-in browser recognition (in-page, zero-config, low latency) → your transcription service → LLM multimodal → extension-side recognition |
+| **http** | Your transcription service → LLM multimodal → **extension-side recognition** (http pages can't access the mic, so recording/recognition run in the extension's offscreen secure context — http surveys work too) |
 
-可在设置页切换优先级为 `service-first`（自有转写服务优先），或显式固定某种引擎。链上任一引擎在产出第一条结果前失败，自动切换下一引擎并在面板提示。
+You can switch priority to `service-first` in settings, or pin a single engine. If an engine fails before producing its first result, the chain moves to the next one automatically.
 
-| 引擎 | 适用场景 | 配置 |
+| Engine | Best for | Config |
 |---|---|---|
-| 浏览器内置 | **Chrome** + https 页面，零配置（Edge 无内置语音识别服务，此路不通，会自动降级） | 无 |
-| 自备转写服务 | OpenAI Whisper 形态（/v1/audio/transcriptions），隐私可控/内网部署 | Base URL / Key / 模型（如 whisper-1、groq、faster-whisper-server） |
-| LLM 多模态直转写 | 服务无转写端点但模型支持音频输入（audio_url，如 Dots） | 复用 LLM 配置，需 OpenAI 协议 |
-| 扩展内置识别 | http 页面的兜底 | 首次在插件弹窗点一次「授权麦克风」 |
+| Built-in browser | **Chrome** + https, zero config (Edge has no built-in speech service — auto-degrades) | none |
+| Your transcription service | OpenAI Whisper-style (/v1/audio/transcriptions), privacy-controlled/on-prem | Base URL / key / model (whisper-1, groq, faster-whisper-server…) |
+| LLM multimodal | No transcription endpoint but the model accepts audio (audio_url, e.g. Dots) | reuses the LLM config, OpenAI protocol |
+| Extension-side recognition | fallback for http pages | click "Grant microphone" once in the popup |
 
-本地/内网地址（如自建 Ollama `http://localhost:11434`）默认被拦截（防 SSRF），需在设置页对应条目勾选「允许本地/内网地址」。
+Local/private addresses (e.g. self-hosted Ollama at `http://localhost:11434`) are blocked by default (SSRF protection) — enable "Allow local/private addresses" for that entry in settings.
 
-## 支持平台
+## Supported platforms
 
-| 平台 | 方式 | 说明 |
+| Platform | Activation | Notes |
 |---|---|---|
-| 问卷星 wjx.cn / wjx.top / sojump.com | 自动 | 专用适配器 |
-| Google Forms（docs.google.com/forms） | 自动 | 专用适配器（role 语义 DOM） |
-| 金数据 jinshuju.net、腾讯问卷 wj.qq.com、美团问卷 wenjuan.meituan.com | 自动 | 通用适配器（React 自绘：ARIA role 选项 + Shadow DOM 穿透 + SPA 渲染等待） |
-| 其他任意问卷页面 | popup「在本页启用」 | 通用适配器按需注入（SPA 站点可随时重按，自动重探题目；activeTab 授权随导航过期时重按一次图标即可） |
+| WJX 问卷星 wjx.cn / wjx.top / sojump.com | automatic | dedicated adapter |
+| Google Forms (docs.google.com/forms) | automatic | dedicated adapter (ARIA-role DOM) |
+| Jinshuju, Tencent Survey (wj.qq.com), Meituan Survey (wenjuan.meituan.com) | automatic | generic adapter (React-rendered: ARIA-role options + Shadow DOM piercing + SPA render wait) |
+| Any other survey page | popup → "Enable on this page" | generic adapter injected on demand |
 
-**通用适配器（experimental）**：识别标准表单结构——radio/checkbox 按 name 分组、select、textarea/text。支持向导式多步表单（存在"下一步/继续"类按钮即按分步处理，答完当页自动翻步，"上一步"可回退）。题干提取按 `label[for] > fieldset legend > aria-label > 临近标题` 的顺序启发式判断，识别不准的页面欢迎提 issue 附 DOM 片段，或按下面"架构"一节写个专用适配器（通常 100 行以内）。
+**Generic adapter (experimental)**: recognizes standard form structures — radio/checkbox grouped by name, select, textarea/text. Supports wizard-style multi-step forms ("Next"/"Continue" buttons trigger step mode; "Previous" steps back). Question titles are extracted heuristically: `label[for] > fieldset legend > aria-label > nearby heading`. If a page is mis-parsed, open an issue with a DOM snippet — or write a dedicated adapter (~100 lines, see Architecture).
 
-## 语音指令
+## Voice commands
 
-| 指令 | 作用 |
+| Command | Action |
 |---|---|
-| 下一题 / 下一个 | 进入下一题 |
-| 上一题 / 返回 | 回退（跨页问卷自动翻回） |
-| 重复 / 再说一遍 | 重听当前题目 |
-| 跳过 | 不作答直接下一题 |
-| 完成 / 好了 | 多选确认后进入下一题 |
-| 提交 / 交卷 | 答完最后题后提交 |
-| 停止朗读 / 别读了 | 打断题目朗读 |
-| 结束作答 / 说完了 | 论述题听写结束（听写中只有这些词生效，防止正文误触发） |
+| 下一题 (next question) | advance |
+| 上一题 (previous) | go back (flips pages on paginated surveys) |
+| 重复 (repeat) | re-read the current question |
+| 跳过 (skip) | skip without answering |
+| 完成 (done) | confirm multi-choice and advance |
+| 提交 (submit) | submit after the last question |
+| 停止朗读 (stop reading) | interrupt read-aloud |
+| 结束作答 (end of answer) | finish essay dictation (only these phrases work during dictation, to avoid false triggers) |
 
-## 支持题型
+> Commands are Chinese keywords in this version; English command words are on the roadmap.
 
-| 题型 | 状态 | 交互 |
+## Supported question types
+
+| Type | Status | Interaction |
 |---|---|---|
-| 单选 | ✅ | 说选项即写入并自动下一题（可设置关闭） |
-| 多选 | ✅ | 说选项追加/取消，说"完成"进入下一题 |
-| 填空/论述 | ✅ | 听写模式，"结束作答"收尾，预览后写入 |
-| 下拉 | ✅ | 同单选 |
-| 量表 | ⚠️ 实验性 | 同单选 |
-| 矩阵/排序/上传 | ❌ | 提示手动作答后说"下一题" |
+| Single choice | ✅ | speak an option; auto-advances (configurable) |
+| Multiple choice | ✅ | speak options to add/remove; say "done" to advance |
+| Text / essay | ✅ | dictation; "end of answer" finishes; preview before writing |
+| Dropdown | ✅ | like single choice |
+| Scale / rating | ⚠️ experimental | like single choice |
+| Matrix / ranking / upload | ❌ | prompts to answer manually, then say "next" |
 
-## 架构
+## Architecture
 
 ```
-问卷页面（问卷星 DOM）
-  → 平台适配器 adapters/wjx.js     归一化为统一题目模型 canonical.js
-  → 语音交互引擎 voice-engine.js    指令/答案状态机
-       ├─ createASR 调度  语音识别（auto：按页面协议自动选链，recorder.js）
-       │    └─ offscreen 文档：麦克风与识别在扩展安全上下文（http 页面可用）
-       ├─ tts.js   题目朗读（speechSynthesis）
-       ├─ matcher.js 规则匹配（本地兜底）
-       └─ llm.js → background → llm-protocols.js（openai / anthropic 可插拔协议适配）
-  → 答案写回：合成真实 DOM 事件，平台自身校验/逻辑跳转照常工作
+Survey page (site DOM)
+  → platform adapter adapters/wjx.js    normalizes into the canonical question model (canonical.js)
+  → voice engine voice-engine.js        command/answer state machine
+       ├─ createASR dispatcher   speech recognition (auto: chain per page protocol, recorder.js)
+       │    └─ offscreen document: mic + recognition in the extension secure context (works on http)
+       ├─ tts.js   question read-aloud (speechSynthesis)
+       ├─ matcher.js  rule matching (local fallback)
+       └─ llm.js → background → llm-protocols.js (pluggable: openai / anthropic)
+  → answer write-back: real DOM events, so each platform's own validation and branching still work
 ```
 
-**开发一个新平台适配器**：在 `src/content/adapters/` 新建文件，实现 `probe() -> survey`，把页面 DOM 解析成 `STQ.createQuestion` 统一模型并在 `manifest.json` 的 `content_scripts` 中注册即可。语音引擎无需改动。
+**Writing a new platform adapter**: add a file under `src/content/adapters/`, implement `probe() -> survey` that parses the page DOM into the `STQ.createQuestion` canonical model, and register it in `manifest.json`. No engine changes needed.
 
-## 隐私
+## Privacy
 
-- 语音识别使用浏览器内置能力（Chrome 系由浏览器厂商的语音服务处理）
-- API Key 仅存本地；LLM 请求只发往你自己填写的地址
-- 插件不上传、不收集任何问卷数据
-- 注意：在公开场合使用语音作答前，请留意周围环境
+- Built-in recognition uses the browser's speech service (Chromium browsers send audio to the vendor's service)
+- API keys stay local; LLM/ASR requests go only to the addresses you configured
+- The extension never uploads or collects survey data
+- Be mindful of your surroundings when answering surveys by voice in public
 
-## 已知限制与路线图
+## Roadmap
 
-- [ ] 问卷星矩阵题、排序题
-- [ ] 腾讯问卷 / 金数据 / Google Forms 适配器
-- [ ] 档案库自动填（授权制个人资料库）
-- [ ] 完全本地 ASR（whisper-wasm）作为隐私选项
-- [ ] Chrome Web Store 上架
+- [ ] WJX matrix / ranking questions
+- [ ] Dedicated adapters for Tencent Survey / Jinshuju / Google Forms-grade fidelity
+- [ ] Profile vault auto-fill (consent-based personal data store)
+- [ ] Fully local ASR (whisper-wasm) as a privacy option
+- [ ] Chrome Web Store listing
+- [ ] English voice commands
 
-欢迎 PR，尤其是新平台适配器。
+PRs welcome — especially new platform adapters.
 
 ## License
 
