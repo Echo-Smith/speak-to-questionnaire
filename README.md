@@ -2,7 +2,15 @@
   <img src="icons/icon256.png" width="96" alt="语音问卷助手">
 </p>
 
-# 语音问卷助手 Speak-to-Questionnaire
+<h1 align="center">语音问卷助手 Speak-to-Questionnaire</h1>
+
+<p align="center">
+  <a href="https://github.com/Echo-Smith/speak-to-questionnaire/actions/workflows/ci.yml"><img src="https://github.com/Echo-Smith/speak-to-questionnaire/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/Echo-Smith/speak-to-questionnaire/releases/latest"><img src="https://img.shields.io/github/v/release/Echo-Smith/speak-to-questionnaire?label=%E6%9C%80%E6%96%B0%E7%89%88" alt="最新版"></a>
+  <a href="https://github.com/Echo-Smith/speak-to-questionnaire/blob/main/LICENSE"><img src="https://img.shields.io/github/license/Echo-Smith/speak-to-questionnaire" alt="MIT License"></a>
+  <img src="https://img.shields.io/badge/BYOK-%E8%87%AA%E5%A4%87Key-168b5b" alt="BYOK">
+  <img src="https://img.shields.io/badge/UI-React%20%2B%20shadcn%2Fui-168b5b" alt="React + shadcn/ui">
+</p>
 
 开源的问卷**语音作答**浏览器插件：朗读题目、开口作答、说"下一题"流转。
 为打字困难的人群（视障用户、老年人）和不想逐题点选的所有人设计。
@@ -80,7 +88,10 @@ src/
 ```bash
 npm run dev      # 两个构建配置同时 watch
 npm run build    # 构建并组装 dist/app（可直接加载的扩展目录）
+./scripts/release.sh 0.7.0   # 版本发布（校验→构建→打包→tag→Release）
 ```
+
+版本历史见 [CHANGELOG.md](CHANGELOG.md)。
 
 **架构约束**：UI 层通过 `createOverlay()` 的命令式接口（setState/setTranscript/setMicOn…）与引擎通信，引擎不依赖 React；`settings-bridge.js` 是 React 访问 chrome.storage 的唯一入口。改 UI 不用动引擎，反之亦然。
 

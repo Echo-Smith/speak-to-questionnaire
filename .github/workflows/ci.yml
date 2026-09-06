@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 原生 JS 语法检查（引擎/适配器/后台/offscreen）
+        run: |
+          FAIL=0
+          for f in $(find src -name "*.js" ! -path "src/ui/*"); do
+            node --check "$f" || FAIL=1
+          done
+          exit $FAIL
+
+      - name: 语法回归扫描（历史 bug 防复发）
+        run: |
+          # tts.js 看门狗变量残留（v0.6.3 修复的 ReferenceError）
+          if grep -q "clearTimeout(watch)" src/content/core/tts.js; then
+            echo "发现已修复 bug 的残留引用：clearTimeout(watch)"; exit 1
+          fi
+
+      - name: 构建
+        run: npm run build
+
+      - name: 校验 dist/app 组装完整性
+        run: |
+          node -e '
+            const fs = require("fs");
+            const m = JSON.parse(fs.readFileSync("dist/app/manifest.json", "utf8"));
+            let missing = [];
+            for (const f of m.content_scripts[0].js) {
+              if (!fs.existsSync("dist/app/" + f)) missing.push(f);
+            }
+            for (const p of [m.options_page, m.action.default_popup, m.background.service_worker]) {
+              if (!fs.existsSync("dist/app/" + p)) missing.push(p);
+            }
+            for (const k of Object.keys(m.icons || {})) {
+              if (!fs.existsSync("dist/app/" + m.icons[k])) missing.push(m.icons[k]);
+            }
+            if (missing.length) { console.error("缺失:", missing); process.exit(1); }
+            console.log("✓ manifest 所有引用文件齐全");
+          '
+
+      - name: 上传构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: speak-to-questionnaire-dist
+          path: dist/app

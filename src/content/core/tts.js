@@ -8,6 +8,7 @@
   let queue = [];
   let speaking = false;
   let activeWatch = 0;
+  let gen = 0; // 会话代际：cancel/speak 都会使旧代失效，旧 utterance 的 onend 不得消费新队列
   let rate = 1.0;
   let lang = 'zh-CN';
 
@@ -32,7 +33,8 @@
     return chunks.filter((c) => c.trim());
   }
 
-  function playNext(onDone) {
+  function playNext(onDone, myGen) {
+    if (myGen !== gen) return; // 过代：旧 utterance 的回调不得消费新队列、不得误清新看门狗
     if (!queue.length) {
       speaking = false;
       if (onDone) onDone();
@@ -46,16 +48,16 @@
     if (v) u.voice = v;
 
     // Chrome 顽疾：speechSynthesis 偶发不触发 onend（尤其长句/切后台），
-    // 用"预估朗读时长 ×1.6 + 3s"的 watchdog 兜底推进，否则引擎永远停在朗读态
+    // 用预估朗读时长的 watchdog 兜底推进，否则引擎永远停在朗读态
     let finished = false;
     const advance = () => {
-      if (finished) return;
+      if (myGen !== gen || finished) return;
       finished = true;
-      clearTimeout(activeWatch);
-      playNext(onDone);
+      playNext(onDone, myGen);
     };
     const est = Math.max(2500, (text.length / Math.max(1, rate)) * 260);
-    activeWatch = setTimeout(advance, est + 3000);
+    const watch = setTimeout(advance, est + 3000);
+    activeWatch = watch;
     u.onend = advance;
     u.onerror = advance;
     window.speechSynthesis.speak(u);
@@ -71,16 +73,18 @@
 
     speak(text, onDone) {
       this.cancel();
+      const myGen = ++gen;
       queue = splitText(text);
       if (!queue.length) {
         if (onDone) onDone();
         return;
       }
       speaking = true;
-      playNext(onDone);
+      playNext(onDone, myGen);
     },
 
     cancel() {
+      gen++; // 失效旧代：被取消 utterance 迟到的 onend 不再误伤新会话
       queue = [];
       speaking = false;
       clearTimeout(activeWatch);
