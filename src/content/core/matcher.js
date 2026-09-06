@@ -5,20 +5,24 @@
   'use strict';
   const STQ = (globalThis.STQ = globalThis.STQ || {});
 
+  // 中英双语并集：无论界面/识别语言是哪种，两套词都可用
+  // 词表在匹配时统一 norm（norm 函数定义在下方，此处用引用）
   const COMMANDS = [
-    ['next', ['下一题', '下一个', '下一条', '继续']],
-    ['prev', ['上一题', '上一个', '返回', '回上一题']],
-    ['repeat', ['重复', '再说一遍', '重复题目', '再读一遍']],
-    ['skip', ['跳过', '不答', '略过']],
-    ['done', ['完成', '好了', '可以了', '答完了', '选完了']],
-    ['submit', ['提交', '提交问卷', '交卷']],
-    ['confirm', ['确认', '确定']],
-    ['cancel', ['取消', '不对', '错了', '重说']],
-    ['stopread', ['停止朗读', '别读了', '停', '安静']],
+    ['next', ['下一题', '下一个', '下一条', '继续', 'next question', 'next', 'continue']],
+    ['prev', ['上一题', '上一个', '返回', '回上一题', 'previous question', 'previous', 'back']],
+    ['repeat', ['重复', '再说一遍', '重复题目', '再读一遍', 'repeat', 'say it again']],
+    ['skip', ['跳过', '不答', '略过', 'skip']],
+    ['done', ['完成', '好了', '可以了', '答完了', '选完了', 'done', 'finished']],
+    ['submit', ['提交', '提交问卷', '交卷', 'submit', 'submit survey']],
+    ['confirm', ['确认', '确定', 'confirm']],
+    ['original', ['原文', '用原文', 'original', 'use original']],
+    ['redo', ['重说', '重新说', 'redo', 'say again redo']],
+    ['cancel', ['取消', '不对', '错了', 'cancel']],
+    ['stopread', ['停止朗读', '别读了', '停', '安静', 'stop reading']],
   ];
 
   // 论述题听写模式下，只有这些短语会结束听写（避免正文里出现"下一题"误触发）
-  const DICTATE_END = ['结束作答', '完成作答', '说完了', '写完了', '回答完毕'];
+  const DICTATE_END = ['结束作答', '完成作答', '说完了', '写完了', '回答完毕', 'end of answer', 'end of my answer', 'finished answering', 'that is my answer'].map(norm);
 
   const CN_NUM = { 零: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
   const LETTERS = 'abcdefghij';
@@ -46,25 +50,26 @@
   }
 
   STQ.Matcher = {
-    /** 是否为听写结束短语 */
+    /** 是否为听写结束短语（短语与输入统一归一化后再比较） */
     isDictateEnd(text) {
       const t = norm(text);
       return DICTATE_END.find((p) => t === p || t.endsWith(p)) || null;
     },
 
-    /** 指令识别（非听写模式）；返回 {cmd} 或 null */
+    /** 指令识别（非听写模式）；返回 {cmd} 或 null。中英词表均归一化后比对 */
     detectCommand(text) {
       const t = norm(text);
       if (!t) return null;
       for (const [cmd, words] of COMMANDS) {
         for (const w of words) {
-          if (t === w) return { cmd };
+          if (t === norm(w)) return { cmd };
         }
       }
-      // 带修饰的说法：给我上一题 / 请重复一遍
+      // 带修饰的说法：给我上一题 / please repeat（短句才做包含匹配，防误触发）
       for (const [cmd, words] of COMMANDS) {
         for (const w of words) {
-          if (t.length <= 6 && t.includes(w)) return { cmd };
+          const nw = norm(w);
+          if (nw.length >= 3 && t.length <= nw.length + 4 && t.includes(nw)) return { cmd };
         }
       }
       return null;

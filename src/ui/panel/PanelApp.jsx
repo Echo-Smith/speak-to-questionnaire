@@ -91,7 +91,7 @@ export default function PanelApp({ handlers, state }) {
     <div
       ref={panelRef}
       style={{ right: 18, bottom: 18 }}
-      className="fixed z-10 w-[300px] overflow-hidden rounded-2xl border border-border bg-card text-foreground shadow-2xl"
+      className="fixed z-10 w-[300px] overflow-hidden rounded-[22px] border border-border bg-card text-foreground shadow-2xl"
     >
       {/* 标题栏（可拖动） */}
       <div

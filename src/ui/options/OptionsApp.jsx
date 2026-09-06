@@ -41,7 +41,7 @@ function ToggleRow({ checked, onChange, title, hint }) {
 
 export default function OptionsApp() {
   const [settings, setSettings] = useState(null);
-  const [micState, setMicState] = useState({ text: '', ok: null });
+  const [micState, setMicState] = useState({ text: '', ok: null, granted: false });
   const [testState, setTestState] = useState({ text: '', ok: null });
   const [saveState, setSaveState] = useState({ text: '', ok: null });
   const [saving, setSaving] = useState(false);
@@ -51,6 +51,10 @@ export default function OptionsApp() {
       globalThis.STQ_I18N_APPLY(s.ui && s.ui.lang);
       setSettings(s);
     });
+    // 麦克风授权状态探测：已授权则隐藏按钮、显示确认徽章
+    navigator.permissions.query({ name: 'microphone' })
+      .then((st) => setMicState({ granted: st.state === 'granted' }))
+      .catch(() => {});
   }, []);
 
   if (!settings) {
@@ -72,7 +76,7 @@ export default function OptionsApp() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       stream.getTracks().forEach((track) => track.stop());
-      setMicState({ text: t('ui.micOk'), ok: true });
+      setMicState({ text: t('ui.micOk'), ok: true, granted: true });
     } catch (e) {
       setMicState({ text: e.message, ok: false });
     }
@@ -172,8 +176,14 @@ export default function OptionsApp() {
               <CardTitle>{t('ui.micTitle')}</CardTitle>
               <CardDescription>{t('ui.micDesc')}</CardDescription>
             </CardHeader>
-            <CardContent>
-              <Button onClick={grantMic}><Mic className="h-4 w-4" /> {t('ui.micBtn')}</Button>
+            <CardContent className="flex items-center gap-3">
+              {micState.granted ? (
+                <span className="inline-flex items-center gap-2 rounded-full border border-emerald-600/40 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
+                  <CheckCircle2 className="h-4 w-4" /> {t('ui.micOk')}
+                </span>
+              ) : (
+                <Button onClick={grantMic}><Mic className="h-4 w-4" /> {t('ui.micBtn')}</Button>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

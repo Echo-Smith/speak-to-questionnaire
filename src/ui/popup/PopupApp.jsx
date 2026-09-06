@@ -11,8 +11,12 @@ export default function PopupApp() {
   const [enabled, setEnabled] = useState(true);
   const [injectMsg, setInjectMsg] = useState('');
 
+  const [micGranted, setMicGranted] = useState(false);
   useEffect(() => {
     stq.load().then((s) => setEnabled(s.enabled));
+    navigator.permissions.query({ name: 'microphone' })
+      .then((st) => setMicGranted(st.state === 'granted'))
+      .catch(() => {});
   }, []);
 
   async function toggleEnabled(v) {
@@ -53,7 +57,7 @@ export default function PopupApp() {
 
       <div className="mt-3 space-y-2">
         <Button className="w-full justify-start" variant="outline" onClick={() => chrome.runtime.openOptionsPage()}>
-          <Mic className="h-4 w-4" /> {t('ui.micAuth')}
+          <Mic className="h-4 w-4" /> {micGranted ? t('ui.micOk') : t('ui.micAuth')}
         </Button>
         <Button className="w-full justify-start" variant="outline" onClick={() => chrome.runtime.openOptionsPage()}>
           <Settings2 className="h-4 w-4" /> {t('ui.settings')}

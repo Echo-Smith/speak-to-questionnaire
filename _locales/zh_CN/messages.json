@@ -1,0 +1,6 @@
+{
+  "extName": { "message": "语音问卷助手" },
+  "extDescription": {
+    "message": "问卷语音作答：朗读题目、开口作答、说下一题流转。BYOK 自备 LLM，http 页面可用。"
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "extName": { "message": "Speak-to-Questionnaire" },
+  "extDescription": {
+    "message": "Voice-driven survey answering: reads questions aloud, you speak, say next. BYOK LLM. Works on http pages."
+  }
+}
