@@ -91,7 +91,7 @@ export default function PanelApp({ handlers, state }) {
     <div
       ref={panelRef}
       style={{ right: 18, bottom: 18 }}
-      className="fixed z-10 w-[300px] overflow-hidden rounded-[22px] border border-border bg-card text-foreground shadow-2xl"
+      className="fixed z-10 w-[300px] max-w-[calc(100vw-16px)] overflow-hidden rounded-[22px] border border-border bg-card text-foreground shadow-2xl"
     >
       {/* 标题栏（可拖动） */}
       <div
@@ -108,7 +108,7 @@ export default function PanelApp({ handlers, state }) {
           )}
           style={{ background: color }}
         />
-        <span className="flex-1 text-sm font-bold">{t("panelTitle")}</span>
+        <span className="flex-1 text-sm font-bold leading-snug">{t("panelTitle")}</span>
         <button
           className="rounded px-1.5 text-muted-foreground transition-colors hover:text-foreground"
           title={t('collapse')}
@@ -116,7 +116,7 @@ export default function PanelApp({ handlers, state }) {
         >×</button>
       </div>
 
-      <div className="p-3">
+      <div className="max-h-[55vh] overflow-y-auto p-3">
         {/* 状态行 */}
         <div
           className={cn('min-h-[38px] text-sm font-semibold', tone === 'error' && 'text-destructive', tone === 'ok' && 'text-primary')}

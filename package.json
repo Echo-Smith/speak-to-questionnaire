@@ -1,6 +1,6 @@
 {
   "name": "speak-to-questionnaire",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "private": true,
   "description": "开源问卷语音作答浏览器插件（BYOK LLM）",
   "type": "module",

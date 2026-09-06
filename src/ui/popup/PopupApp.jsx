@@ -56,13 +56,13 @@ export default function PopupApp() {
       </div>
 
       <div className="mt-3 space-y-2">
-        <Button className="w-full justify-start" variant="outline" onClick={() => chrome.runtime.openOptionsPage()}>
+        <Button className="w-full justify-start whitespace-normal text-left" variant="outline" onClick={() => chrome.runtime.openOptionsPage()}>
           <Mic className="h-4 w-4" /> {micGranted ? t('ui.micOk') : t('ui.micAuth')}
         </Button>
-        <Button className="w-full justify-start" variant="outline" onClick={() => chrome.runtime.openOptionsPage()}>
+        <Button className="w-full justify-start whitespace-normal text-left" variant="outline" onClick={() => chrome.runtime.openOptionsPage()}>
           <Settings2 className="h-4 w-4" /> {t('ui.settings')}
         </Button>
-        <Button className="w-full justify-start" onClick={injectHere}>
+        <Button className="w-full justify-start whitespace-normal text-left" onClick={injectHere}>
           <Zap className="h-4 w-4" /> {t('ui.injectHere')}
         </Button>
       </div>
