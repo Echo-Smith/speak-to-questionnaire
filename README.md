@@ -191,6 +191,32 @@ Survey page (site DOM)
 - The extension never uploads or collects survey data
 - Be mindful of your surroundings when answering surveys by voice in public
 
+## Troubleshooting
+
+**The panel never appears**
+
+Check that the current page is a [supported platform](#supported-platforms). On other sites, open the extension popup and click "Enable on this page". If the page was just reloaded, give it a second — content scripts are injected after `document_idle`.
+
+**Clicking 🎙 does nothing, or you're told the microphone isn't available**
+
+The microphone permission is granted to **the extension itself**, not to the survey site, and it has to be done on the settings page (the popup gets closed by the permission dialog). Extension icon → Settings → "🎤 Grant microphone". If you previously dismissed the prompt with "Block", re-allow it under `chrome://extensions` → the extension's card → Details → site access.
+
+**Recognition always fails in Edge**
+
+Edge ships no built-in speech service. Switch ASR to a third-party path in Settings (LLM multimodal transcription, or an external ASR service); Chrome over `https` works with zero configuration.
+
+**Voice commands are misheard**
+
+First confirm you're on an `https` page (some browsers withhold the microphone over plain `http`). Then check whether an LLM is configured — without one, matching is local and rule-based, so only the fixed phrases in the vocabulary are recognized. Short commands like "next" are the most vulnerable to homophones; reduce background noise or use the buttons.
+
+**"Test connection" fails**
+
+Both `https://api.example.com` and `https://api.example.com/v1` work as Base URL — the extension completes it automatically. If it fails, read the HTTP status in the error body: `401/403` means the key or auth style is wrong, `404` usually means a wrong Base URL or model name. On aggregators (Dots, etc.) pick the protocol its docs specify (OpenAI-compatible / Anthropic-compatible).
+
+**Settings vanished after an update**
+
+Settings live in `chrome.storage.local` and survive overwriting the unpacked directory. If they really are gone, the extension ID probably changed — reinstalling, or loading from a different directory, gives a new ID with its own isolated storage.
+
 ## Roadmap
 
 - [ ] WJX matrix / ranking questions
